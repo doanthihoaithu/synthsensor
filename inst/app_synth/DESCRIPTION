@@ -1,6 +1,0 @@
-Package: app.synthsensor
-Type: Shiny
-Title: Launcher for synthsensor app
-Version: 0.0.1
-Imports: synthsensor
-Remotes: AstridMarie2/synthsensor
