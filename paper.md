@@ -36,11 +36,17 @@ While real-world sensor datasets are valuable, they rarely include complete grou
 <!-- To our knowledge, no existing R package offers synthetic generation of multi-sensor time series with flexible anomaly injection and labeled outputs. -->
 
 This software addresses these gaps by:
-- Allowing **two sensors** to measure either the same or correlated background signals.
-- Providing a **broad set of configurable anomaly types**: spikes, drifts, sensor delay/attenuation, noise, and constant bias.
-- Enabling **precise control over anomaly magnitude, duration, and correlation** between sensors.
-- Outputting **CSV files with labeled anomalies** for use in supervised learning and method validation.
-- Offering an **interactive Shiny UI** for rapid experimentation, as well as scriptable functions for batch generation.
+
+* Allowing **two sensors** to measure either the same or correlated background signals.
+
+* Providing a **broad set of configurable anomaly types**: spikes, drifts, sensor delay/attenuation, noise, and constant bias.
+
+* Enabling **precise control over anomaly magnitude, duration, and correlation** between sensors.
+
+* Outputting **CSV files with labeled anomalies** for use in supervised learning and method validation.
+
+* Offering an **interactive Shiny UI** for rapid experimentation, as well as scriptable functions for batch generation.
+
 
 # Related work
 Several tools provide synthetic time-series data or anomaly-related functionality, but to our knownledge none combine **multi-sensor redundancy**, **configurable anomaly injection**, and **ground-truth error magnitudes**. Table 1 summarizes the most relevant approaches.
@@ -58,42 +64,63 @@ Several tools provide synthetic time-series data or anomaly-related functionalit
 
 
 # Use
-The framework has been adopted in several research projects. It is used in [@Skalvik2025] to generate controlled datasets for validating a Bayesian method for error and uncertainty estimation of environmental sensor data. In [@Heggedal2025], it was applied in the development of a software tool that assists experts with annotating marine time series. In [@Stuen2025] it was used for demonstrating a method for uncertainty quantification of hydrogen leaks.
+The framework has been adopted in several research projects. It is used in [@Skalvik2025] to generate controlled datasets for validating a Bayesian method for error and uncertainty estimation of environmental sensor data. In [@BjornhovdeHeggedal2025], it was applied in the development of a software tool that assists experts with annotating marine time series. In [@Stuen2025] it was used for demonstrating a method for uncertainty quantification of hydrogen leaks.
 
 Beyond these projects, the package is broadly useful for:
-- **Reproducible benchmarking**: researchers can share identical datasets (using fixed seeds) to compare diagnostic methods.
-- **Teaching and training**: students can experiment with sensor error effects without requiring access to field instruments.
-- **Rapid prototyping**: practitioners can quickly simulate “what if” scenarios for sensor anomalies before deploying to the field.
+
+* **Reproducible benchmarking**: researchers can share identical datasets (using fixed seeds) to compare diagnostic methods.
+
+* **Teaching and training**: students can experiment with sensor error effects without requiring access to field instruments.
+
+* **Rapid prototyping**: practitioners can quickly simulate “what if” scenarios for sensor anomalies before deploying to the field.
+
 
 
 # Implementation
 The framework is implemented in **R** and is provided both as:
+
 1. A **Shiny application** for interactive configuration and dataset export.
+
 2. A set of **modular R functions** for programmatic dataset generation.
+
 
 ## Background signal
 The package provides functions to generate several background signal models:
-- **Autoregressive process (AR(1))** — for stationary signals with tunable autocorrelation.
-- **Random walk** — a special case of AR(1) with strong temporal autocorrelation.
-- **Poisson moving average** — for smoothed stochastic signals.
-- **Sine wave** — for periodic variation.
+
+* **Autoregressive process (AR(1))** — for stationary signals with tunable autocorrelation.
+
+* **Random walk** — a special case of AR(1) with strong temporal autocorrelation.
+
+* **Poisson moving average** — for smoothed stochastic signals.
+
+* **Sine wave** — for periodic variation.
+
 
 For the AR(1) and Random walk, the background signals can be **correlated** between sensors with user-defined cross-correlation. For the Poisson moving average and the Sine wave, the background signals are identical between the sensors. 
 
 ## Anomaly types
 Anomalies can be introduced individually or in combination:
-- **Delay/attenuation** — models exponential moving average sensor response.
-- **Noise and constant bias** — configurable per sensor, with optional correlation between noise terms.
-- **Spikes** — short-duration deviations, correlated or uncorrelated between sensors, with random sign and magnitude.
-- **Drifts** — gradual deviations over time, with configurable slope and duration.
+
+* **Delay/attenuation** — models exponential moving average sensor response.
+
+* **Noise and constant bias** — configurable per sensor, with optional correlation between noise terms.
+
+* **Spikes** — short-duration deviations, correlated or uncorrelated between sensors, with random sign and magnitude.
+
+* **Drifts** — gradual deviations over time, with configurable slope and duration.
+
 
 Anomalies are inserted at random positions while ensuring spacing from time-series edges to avoid boundary artifacts.
 
 ## Output
 The output is a **CSV file** containing:
-- Time series for both sensors.
-- Flags for each time step indicating anomaly type.
-- True error magnitude for each sensor.
+
+* Time series for both sensors.
+
+* Flags for each time step indicating anomaly type.
+
+* True error magnitude for each sensor.
+
 
 # Reproducibility
 All random processes are controlled via a user-specified random seed. Full mathematical details of signal generation and anomaly injection are provided in the software documentation and supplementary materials (https://github.com/AstridMarie2/synthsensor --> *Synthetic Sensor Data Generation Framework - Mathematics*). 
@@ -159,7 +186,9 @@ synthsensor::app_synth()
 
 # Availability
 The framework is available as:
+
 1. An online Shiny app: https://sensordiagnostics.shinyapps.io/app_synth/
+
 2. Source code and documentation on GitHub: https://github.com/AstridMarie2/synthsensor
 
 Zenodo DOI link: https://doi.org/10.5281/zenodo.17157665
