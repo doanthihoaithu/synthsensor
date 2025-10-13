@@ -19,6 +19,7 @@ affiliations:
 date: 23 September 2025
 bibliography: paper.bib
 
+---
 
 
 # Summary
@@ -57,7 +58,7 @@ Several tools provide synthetic time-series data or anomaly-related functionalit
 
 
 # Use
-The framework has been adopted in several research projects. It is used in [@Skålvik2025] to generate controlled datasets for validating a Bayesian method for error and uncertainty estimation of environmental sensor data. In [@Heggedal2025], it was applied in the development of a software tool that assists experts with annotating marine time series. In [@Stuen2025] it was used for demonstrating a method for uncertainty quantification of hydrogen leaks.
+The framework has been adopted in several research projects. It is used in [@Skalvik2025] to generate controlled datasets for validating a Bayesian method for error and uncertainty estimation of environmental sensor data. In [@Heggedal2025], it was applied in the development of a software tool that assists experts with annotating marine time series. In [@Stuen2025] it was used for demonstrating a method for uncertainty quantification of hydrogen leaks.
 
 Beyond these projects, the package is broadly useful for:
 - **Reproducible benchmarking**: researchers can share identical datasets (using fixed seeds) to compare diagnostic methods.
