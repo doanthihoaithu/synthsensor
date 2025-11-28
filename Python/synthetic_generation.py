@@ -1,3 +1,4 @@
+import logging
 import math
 import random
 
@@ -8,6 +9,10 @@ import matplotlib.patches as mpatches
 from scipy.stats import multivariate_normal
 from datetime import datetime, timedelta
 
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 def lagged_ema(x, alpha):
     """
@@ -443,14 +448,16 @@ def generate_data_function(
 
     return df
 
+
+
+
+
+
+
+
 # Source - https://stackoverflow.com/q
 # Posted by Sergio, modified by community. See post 'Timeline' for change history
 # Retrieved 2025-11-25, License - CC BY-SA 3.0
-
-# def plotShades(ax, indices, intervals, colour):
-#     for i in range(len(intervals)):
-#         ax.axvspan(indices[intervals[i][0]], indices[intervals[i][1]], alpha=0.5, color=colour, label="interval")
-
 
 if __name__ == '__main__':
     # background_type = "AR(1) Process"

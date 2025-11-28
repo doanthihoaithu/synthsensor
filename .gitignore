@@ -7,3 +7,9 @@
 .idea/
 *.iml
 **.png
+Python/conf/config.yaml
+Python/generation/data
+
+Python/.hydra/
+Python/__pycache__/
+Python/**.log

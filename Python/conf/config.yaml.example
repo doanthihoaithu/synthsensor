@@ -1,0 +1,26 @@
+hydra:
+  job:
+    chdir: true  # to save objects in a working directory
+  run:
+    dir: .  # Disable Hydra's Directory Change
+
+random:
+  seed: 42
+
+generation:
+  working_dir: generation
+  config_dir: ${generation.working_dir}/config
+  data_dir: ${generation.working_dir}/data
+  used_settings: settings_1
+  add_background: True
+  poisson_k: 5
+  poisson_lambda: 3
+  background_rho_rw: 0
+  randomwalk_sd: 0.1
+  sine_amplitude: 1
+  sine_period: 20
+  background_phi: 0.8
+  background_rho: 0
+
+  global_crosscor_noise: 0.01
+  global_spike_size: 3

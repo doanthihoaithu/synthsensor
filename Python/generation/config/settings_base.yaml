@@ -1,0 +1,9 @@
+generation:
+  poisson_k: 0
+  poisson_lambda: 0
+  randomwalk_sd: 0
+  background_rho_rw: 0
+  sine_amplitude: 0
+  sine_period: 0
+  background_phi: 0
+  background_rho: 0

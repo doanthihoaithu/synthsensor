@@ -1,0 +1,290 @@
+import itertools
+import json
+import random
+import sys
+from datetime import datetime, timedelta
+
+import hydra
+import pandas as pd
+from omegaconf import DictConfig, OmegaConf
+import logging
+
+import numpy as np
+import torch
+from tqdm import tqdm
+import os
+
+import matplotlib.patches as mpatches
+
+from matplotlib import pyplot as plt
+from scipy.stats import multivariate_normal
+from Python.synthetic_generation import new_flag_vec, pick_spike_starts, update_flags, pick_segment
+from utils import set_random_seed
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+BACKGROUND_TYPE_MAP = {
+    'ar_1_process': 'AR(1) Process',
+    'random_walk': 'Random Walk',
+    'sine_wave': 'Sine Wave',
+    'poisson_moving_average': 'Poisson Moving Average'
+}
+
+@hydra.main(config_path="conf", config_name="config.yaml")
+def main(cfg: DictConfig):
+    """
+    Main function to preprocess the pivoted dataset, dividing into different feature subsets.
+
+    Steps:
+    1. Load and preprocess the data.
+    2. Save processed data to disk.
+
+    Parameters:
+    - cfg: DictConfig, configuration object containing paths, parameters, and settings.
+    """
+    print(cfg)
+    log.info("Starting main function")
+
+    random_seed = cfg.random.seed
+    set_random_seed(random_seed)
+
+    config_dir = cfg.generation.config_dir
+    for f in os.listdir(config_dir):
+        settings_path = os.path.join(config_dir, f)
+        if 'base' in f:
+            continue
+        with open(settings_path, "r") as settings_file:
+            settings_cfg = OmegaConf.load(settings_file)
+            generation_cfg = cfg.generation
+            dfs = generate_data_function_from_cfg(settings_cfg, generation_cfg)
+            save_generated_data(dfs, settings_cfg, cfg)
+def save_generated_data(dfs, settings_cfg, global_cfg):
+    for index, df in enumerate(dfs):
+        data_dir = global_cfg.generation.data_dir
+        saved_file_dir = os.path.join(data_dir, settings_cfg.settings_name)
+        os.makedirs(saved_file_dir, exist_ok=True)
+        saved_file_path = os.path.join(saved_file_dir, f'synthetic_{index}.csv')
+        df.to_csv(saved_file_path, index=False)
+        log.info(f'Saved generated data to {saved_file_path}')
+
+        fig = plot_generated_data(df, settings_cfg, global_cfg)
+        saved_file_path = os.path.join(saved_file_dir, f'figure_synthetic_{index}.png')
+        fig.savefig(saved_file_path, bbox_inches='tight')
+        log.info(f'Saved figure to {saved_file_path}')
+def plot_generated_data(df, settings_cfg, global_cfg):
+    num_sensors = settings_cfg.num_sensors
+    data_dir = global_cfg.generation.data_dir
+    fig, axes = plt.subplots(nrows=num_sensors, ncols=1, figsize=(15, 15))
+    for i in range(num_sensors):
+        axes[i].plot(df[f'Sensor{i}'], label=f'Sensor{i}')
+        axes[i].legend(loc="upper right")
+        axes[i].set_xlim(0, df.index.max())
+
+        sensor_anomalies = df[df[f'AnomalyFlag{i}'] != 'Normal']
+        for index, anomaly in sensor_anomalies.iterrows():
+            # print(index, anomaly[f'AnomalyFlag{i}'])
+            color = 'red'
+            if anomaly[f'AnomalyFlag{i}'] == 'Spike':
+                color = 'red'
+            elif anomaly[f'AnomalyFlag{i}'] == 'Drift':
+                color = 'orange'
+            elif anomaly[f'AnomalyFlag{i}'] == 'SpikeCorr':
+                color = 'green'
+            elif anomaly[f'AnomalyFlag{i}'] == 'DriftCorr':
+                color = 'blue'
+            elif anomaly[f'AnomalyFlag{i}'] == 'Both':
+                color = 'violet'
+            axes[i].axvline(index, color=color, alpha=0.5)
+
+    red_patch = mpatches.Patch(color='red', label='Spike')
+    orange_patch = mpatches.Patch(color='orange', label='Drift')
+    green_patch = mpatches.Patch(color='green', label='SpikeCorr')
+    blue_patch = mpatches.Patch(color='blue', label='DriftCorr')
+    violet_patch = mpatches.Patch(color='violet', label='Both')
+    #
+    patches = [red_patch, orange_patch, green_patch, blue_patch, violet_patch]
+    # patches = [red_patch]
+
+    fig.suptitle(f'Sensor data generation', fontsize=16, y=1.08)
+    # for patch in patches:
+    #     axes[1].add_patch(patch)
+    # axes[1].legend(loc="best")
+
+    fig.legend(handles=patches, loc="lower center", ncol=len(patches), bbox_to_anchor=(0.5, -0.1))
+    fig.tight_layout()
+    return fig
+
+
+def validate_settings_cfg(settings_cfg):
+    log.info('Validating settings cfg: {}'.format(settings_cfg))
+    num_sensors = settings_cfg.num_sensors
+    sensor_background_types = settings_cfg.sensor_background_types
+    for t in sensor_background_types:
+        assert t in BACKGROUND_TYPE_MAP.keys()
+    correlated_groups = settings_cfg.correlated_groups
+    for key, val in correlated_groups.items():
+        sensor_ids = val['sensor_ids']
+        for sensor_id in sensor_ids:
+            assert sensor_id <= num_sensors
+    assert True
+    return True
+
+def generate_single_batch(settings_cfg, generation_cfg, sd_list, mean_list):
+    crosscor_noise = generation_cfg.global_crosscor_noise
+    num_sensors = settings_cfg.num_sensors
+    num_data_point_per_batch = settings_cfg.num_data_point_per_batch
+
+    max_independent_spikes = settings_cfg.max_independent_spikes
+    max_correlated_spikes = settings_cfg.max_correlated_spikes
+    max_independent_drifts = settings_cfg.max_independent_drifts
+    max_correlated_drifts = settings_cfg.max_correlated_drifts
+    max_spike_length = settings_cfg.max_spike_length
+    drift_duration = settings_cfg.drift_duration
+    drift_slope = settings_cfg.drift_slope
+    spike_size = settings_cfg.spike_size
+
+    columns = [f'Sensor{i}' for i in range(num_sensors)]
+    df = pd.DataFrame(np.zeros((num_data_point_per_batch, num_sensors)), columns=columns)
+    df['Time'] = np.arange(num_data_point_per_batch)
+    df['Date'] = [datetime(2025, 1, 1) + timedelta(hours=i) for i in range(num_data_point_per_batch)]
+    # df.set_index('Date', inplace=True)
+    for index, c in enumerate(columns):
+        df[f'AnomalyFlag{index}'] = new_flag_vec(num_data_point_per_batch)
+
+    # print(df.head())
+
+    cov = np.zeros((num_sensors, num_sensors))
+    for sensor_index in range(num_sensors):
+        cov[sensor_index, sensor_index] = sd_list[sensor_index] ** 2
+    for key, value in settings_cfg.correlated_groups.items():
+        sensor_ids = value['sensor_ids']
+        for i, j in itertools.combinations(sensor_ids, 2):
+            # cov[i,i] = sd_list[i]**2
+            # cov[j,j] = sd_list[j]**2
+            cov[i, j] = crosscor_noise * sd_list[i] * sd_list[j]
+            cov[j, i] = crosscor_noise * sd_list[i] * sd_list[j]
+
+    noise = multivariate_normal(mean=[0, 0, 0, 0, 0, 0], cov=cov).rvs(size=num_data_point_per_batch)
+    # print(noise)
+
+    for sensor_index in range(num_sensors):
+        noise[:, sensor_index] += (mean_list[sensor_index] - noise[:, sensor_index].mean())
+
+    for sensor_index in range(num_sensors):
+        df[f'Sensor{sensor_index}'] += noise[:, sensor_index]
+
+    min_amp_list = [2 * sd for sd in sd_list]
+    max_amp_list = [max(mean_list[sensor_index] * spike_size, abs(mean_list[sensor_index]) * 1) for sensor_index in
+                    range(num_sensors)]
+
+    def draw_amp(minv, maxv):
+        return np.random.uniform(minv, maxv)
+
+    for key, val in settings_cfg.correlated_groups.items():
+        sensor_ids = val['sensor_ids']
+        n_spikes_corr = np.random.randint(1, max_correlated_spikes)
+        if n_spikes_corr > 0:
+            starts = pick_spike_starts(num_data_point_per_batch, n_spikes_corr, max_spike_length, buffer=100)
+            for st in starts:
+                ln = np.random.randint(1, max_spike_length + 1)
+                ed = min(st + ln - 1, num_data_point_per_batch)
+                u = np.random.rand()
+                for id in sensor_ids:
+                    amp = min_amp_list[id] + u * (max_amp_list[id] - min_amp_list[id])
+                    # amp1 = min_amp1 + u * (max_amp1 - min_amp1)
+                    # amp2 = min_amp2 + u * (max_amp2 - min_amp2)
+                    sgn = np.random.choice([-1, 1])
+                    df.loc[st - 1:ed - 1, f'Sensor{id}'] += sgn * amp
+                    # df.loc[st-1:ed-1, "Sensor2"] += sgn * amp2
+                    df[f'AnomalyFlag{id}'] = update_flags(df[f'AnomalyFlag{id}'], range(st, ed + 1), "SpikeCorr")
+                    # df["AnomalyFlag2"] = update_flags(df["AnomalyFlag2"], range(st, ed+1), "SpikeCorr")
+
+        n_drift_corr = np.random.randint(1, max_correlated_drifts)
+        for st in range(n_drift_corr):
+            duration = np.random.randint(drift_duration[0], drift_duration[1] + 1)
+            # duration2 = np.random.randint(drift_duration[0], drift_duration[1] + 1)
+            slope = np.random.uniform(drift_slope[0], drift_slope[1])
+            seg = pick_segment(num_data_point_per_batch, duration, buffer=100)
+            if seg is None:
+                continue
+            st, ed = seg
+            drift = np.linspace(0, slope, duration)
+            for id in sensor_ids:
+                df.loc[st - 1:ed - 1, f'Sensor{id}'] += drift
+                # df.loc[st - 1:ed - 1, "Sensor2"] += drift
+                df[f'AnomalyFlag{id}'] = update_flags(df[f'AnomalyFlag{id}'], range(st, ed + 1), "DriftCorr")
+                # df["AnomalyFlag2"] = update_flags(df["AnomalyFlag2"], range(st, ed + 1), "DriftCorr")
+
+    for sensor_index in range(num_sensors):
+        n_spikes_s1 = np.random.randint(1, max_independent_spikes)
+        if n_spikes_s1 > 0:
+            starts = pick_spike_starts(num_data_point_per_batch, n_spikes_s1, max_spike_length, buffer=100)
+            for st in starts:
+                ln = np.random.randint(1, max_spike_length + 1)
+                ed = min(st + ln - 1, num_data_point_per_batch)
+                amp = draw_amp(min_amp_list[sensor_index], max_amp_list[sensor_index])
+                sgn = np.random.choice([-1, 1])
+                df.loc[st - 1:ed - 1, f'Sensor{sensor_index}'] += sgn * amp
+                df[f'AnomalyFlag{sensor_index}'] = update_flags(df[f'AnomalyFlag{sensor_index}'], range(st, ed + 1),
+                                                                "Spike")
+
+        n_drifts = np.random.randint(1, max_independent_drifts)
+        for _ in range(n_drifts):
+            duration = np.random.randint(drift_duration[0], drift_duration[1] + 1)
+            slope = np.random.uniform(drift_slope[0], drift_slope[1])
+            seg = pick_segment(num_data_point_per_batch, duration, buffer=100)
+            if seg is None:
+                continue
+            st, ed = seg
+            drift = np.linspace(0, slope, duration)
+            df.loc[st - 1:ed - 1, f'Sensor{sensor_index}'] += drift
+            df[f'AnomalyFlag{sensor_index}'] = update_flags(df[f'AnomalyFlag{sensor_index}'], range(st, ed + 1),
+                                                            "Drift")
+    return df
+def generate_data_function_from_cfg(settings_cfg, generation_cfg):
+    poisson_k = generation_cfg.poisson_k
+    poisson_lambda = generation_cfg.poisson_lambda
+    randomwalk_sd = generation_cfg.randomwalk_sd
+    background_rho_rw = generation_cfg.background_rho_rw
+    sine_amplitude = generation_cfg.sine_amplitude
+    sine_period = generation_cfg.sine_period
+    background_phi = generation_cfg.background_phi
+    background_rho = generation_cfg.background_rho
+    # print(cfg)
+    validate_settings_cfg(settings_cfg)
+    num_batches = settings_cfg.num_batches
+    num_sensors = settings_cfg.num_sensors
+    num_data_point_per_batch = settings_cfg.num_data_point_per_batch
+    max_independent_spikes = settings_cfg.max_independent_spikes
+    max_correlated_spikes = settings_cfg.max_correlated_spikes
+    max_independent_drifts = settings_cfg.max_independent_drifts
+    max_correlated_drifts = settings_cfg.max_correlated_drifts
+    max_spike_length = settings_cfg.max_spike_length
+    drift_duration = settings_cfg.drift_duration
+    drift_slope = settings_cfg.drift_slope
+    print(f"num_batches: {num_batches}")
+    print(f"num_data_point_per_batch: {num_data_point_per_batch}")
+    print(f"max_independent_spikes: {max_independent_spikes}")
+    print(f"max_correlated_spikes: {max_correlated_spikes}")
+    print(f"max_independent_drifts: {max_independent_drifts}")
+    print(f"max_correlated_drifts: {max_correlated_drifts}")
+
+    sd_list = [random.uniform(0, 0.5) for _ in range(num_sensors)]
+    mean_list = [random.randint(1,5) for _ in range(num_sensors)]
+
+    dfs = []
+    for i in tqdm(range(num_batches), total=num_batches, desc='Generating data...'):
+        df = generate_single_batch(settings_cfg, generation_cfg, sd_list, mean_list)
+        dfs.append(df)
+
+    return dfs
+
+
+
+if __name__ == "__main__":
+    print(f'Arguments: {sys.argv}')
+
+    # my_app.py ++db.password = 1234
+    main()
