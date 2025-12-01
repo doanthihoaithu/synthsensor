@@ -1,8 +1,10 @@
 import itertools
 import json
 import random
+import shutil
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import hydra
 import pandas as pd
@@ -61,18 +63,20 @@ def main(cfg: DictConfig):
             dfs = generate_data_function_from_cfg(settings_cfg, generation_cfg)
             save_generated_data(dfs, settings_cfg, cfg)
 def save_generated_data(dfs, settings_cfg, global_cfg):
+    data_dir = global_cfg.generation.data_dir
+    saved_file_dir = os.path.join(data_dir, settings_cfg.settings_name)
+    if os.path.exists(saved_file_dir):
+        shutil.rmtree(saved_file_dir)
+    os.makedirs(saved_file_dir, exist_ok=True)
     for index, df in enumerate(dfs):
-        data_dir = global_cfg.generation.data_dir
-        saved_file_dir = os.path.join(data_dir, settings_cfg.settings_name)
-        os.makedirs(saved_file_dir, exist_ok=True)
         saved_file_path = os.path.join(saved_file_dir, f'synthetic_{index}.csv')
         df.to_csv(saved_file_path, index=False)
         log.info(f'Saved generated data to {saved_file_path}')
 
-        fig = plot_generated_data(df, settings_cfg, global_cfg)
-        saved_file_path = os.path.join(saved_file_dir, f'figure_synthetic_{index}.png')
-        fig.savefig(saved_file_path, bbox_inches='tight')
-        log.info(f'Saved figure to {saved_file_path}')
+        # fig = plot_generated_data(df, settings_cfg, global_cfg)
+        # saved_file_path = os.path.join(saved_file_dir, f'figure_synthetic_{index}.png')
+        # fig.savefig(saved_file_path, bbox_inches='tight')
+        # log.info(f'Saved figure to {saved_file_path}')
 def plot_generated_data(df, settings_cfg, global_cfg):
     num_sensors = settings_cfg.num_sensors
     data_dir = global_cfg.generation.data_dir

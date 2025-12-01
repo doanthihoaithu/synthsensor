@@ -2,12 +2,12 @@
 #  - settings_base
 
 settings_name: settings_2
-num_batches: 10
+num_batches: 200
 num_data_point_per_batch: 1000
-max_independent_spikes: 5
-max_correlated_spikes: 5
-max_independent_drifts: 5
-max_correlated_drifts: 5
+max_independent_spikes: 3
+max_correlated_spikes: 3
+max_independent_drifts: 3
+max_correlated_drifts: 3
 num_sensors: 6
 max_spike_length: 10
 drift_duration: [10, 15]
