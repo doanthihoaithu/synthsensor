@@ -13,20 +13,25 @@ max_spike_length: 10
 drift_duration: [10, 15]
 drift_slope: [-0.05, 0.05]
 spike_size: 2
+delayed_sensors: []
 sensor_background_types:
 - sine_wave
-- ar_1_process
-- poisson_moving_average
 - sine_wave
-- random_walk
+- sine_wave
+- sine_wave
+- sine_wave
 - sine_wave
 correlated_groups:
   group_0:
     sensor_ids:
     - 0
     - 1
+    - 2
   group_1:
     sensor_ids:
-    - 2
     - 3
     - 4
+  group_2:
+    sensor_ids:
+    - 0
+    - 5

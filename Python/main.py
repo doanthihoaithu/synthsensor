@@ -18,7 +18,7 @@ import matplotlib.patches as mpatches
 
 from matplotlib import pyplot as plt
 from scipy.stats import multivariate_normal
-from Python.synthetic_generation import new_flag_vec, pick_spike_starts, update_flags, pick_segment
+from Python.synthetic_generation import new_flag_vec, pick_spike_starts, update_flags, pick_segment, lagged_ema
 from utils import set_random_seed
 
 # Configure logging
@@ -76,7 +76,7 @@ def save_generated_data(dfs, settings_cfg, global_cfg):
 def plot_generated_data(df, settings_cfg, global_cfg):
     num_sensors = settings_cfg.num_sensors
     data_dir = global_cfg.generation.data_dir
-    fig, axes = plt.subplots(nrows=num_sensors, ncols=1, figsize=(15, 15))
+    fig, axes = plt.subplots(nrows=num_sensors, ncols=1, figsize=(15, 10))
     for i in range(num_sensors):
         axes[i].plot(df[f'Sensor{i}'], label=f'Sensor{i}')
         axes[i].legend(loc="upper right")
@@ -131,6 +131,93 @@ def validate_settings_cfg(settings_cfg):
     assert True
     return True
 
+def generate_background_function(settings_cfg, generation_cfg):
+    num_data_point_per_batch = settings_cfg.num_data_point_per_batch
+    n = max(int(num_data_point_per_batch), 100)
+    num_sensors = settings_cfg.num_sensors
+
+    poisson_k = generation_cfg.poisson_k
+    poisson_lambda = generation_cfg.poisson_lambda
+    randomwalk_sd = generation_cfg.randomwalk_sd
+    background_rho_rw = generation_cfg.background_rho_rw
+    sine_amplitude = generation_cfg.sine_amplitude
+    sine_period = generation_cfg.sine_period
+    background_phi = generation_cfg.background_phi
+    background_rho = generation_cfg.background_rho
+
+    matrix = np.zeros((num_data_point_per_batch, num_sensors))
+
+    # for sensor_index in range(num_sensors):
+    selected_index = 0
+    background_type = settings_cfg.sensor_background_types[selected_index]
+    background_type= BACKGROUND_TYPE_MAP[background_type]
+    if background_type == "Poisson Moving Average":
+        moving = np.random.poisson(lam=poisson_lambda, size=n + poisson_k)
+        # moving average (simple)
+        ma = pd.Series(moving).rolling(window=poisson_k).mean().dropna().values
+        ma = ma[:n]
+
+        for sensor_index in range(num_sensors):
+            matrix[:, sensor_index] = ma
+        # return dict(sensor1=ma, sensor2=ma)
+
+    elif background_type == "Random Walk":
+        cov = np.zeros((num_sensors, num_sensors))
+        for sensor_index in range(num_sensors):
+            cov[sensor_index, sensor_index] = 1
+        for key, val in settings_cfg.correlated_groups.items():
+            sensor_ids = val['sensor_ids']
+            for i, j in itertools.combinations(sensor_ids, 2):
+                cov[i, j] = background_rho_rw
+            # cov = np.array([[1, background_rho_rw],
+            #                 [background_rho_rw, 1]])
+        steps = multivariate_normal(mean=np.zeros(num_sensors), cov=cov).rvs(size=n)
+        steps = steps * randomwalk_sd
+
+        for sensor_index in range(num_sensors):
+            s1 = np.cumsum(steps[:, sensor_index])
+            # s2 = np.cumsum(steps[:, 1])
+            matrix[:, sensor_index] = s1
+        # return dict(sensor1=s1, sensor2=s2)
+
+    elif background_type == "Sine Wave":
+        x = np.arange(1, n + 1)
+        sw = sine_amplitude * np.sin(2 * np.pi * x / sine_period)
+        for sensor_index in range(num_sensors):
+            matrix[:, sensor_index] = sw
+        # return dict(sensor1=sw, sensor2=sw)
+
+    elif background_type == "AR(1) Process":
+        s1 = np.zeros(n)
+        s2 = np.zeros(n)
+
+        if background_rho == 1:
+            init_val = np.random.normal(0, np.sqrt(1 / (1 - background_phi ** 2)))
+            s1[0], s2[0] = init_val, init_val
+            eps = np.random.normal(size=n)
+            for t in range(1, n):
+                s1[t] = background_phi * s1[t - 1] + eps[t]
+                s2[t] = background_phi * s2[t - 1] + eps[t]
+        else:
+            cov = np.array([[1, background_rho],
+                            [background_rho, 1]])
+            init_cov = cov / (1 - background_phi ** 2)
+            init_vals = multivariate_normal(mean=[0, 0], cov=init_cov).rvs()
+            s1[0], s2[0] = init_vals
+            innovations = multivariate_normal(mean=[0, 0], cov=cov).rvs(size=n)
+            for t in range(1, n):
+                s1[t] = background_phi * s1[t - 1] + innovations[t, 0]
+                s2[t] = background_phi * s2[t - 1] + innovations[t, 1]
+
+        sensor_index = 0
+        matrix[:, sensor_index] = s1
+        # return dict(sensor1=s1, sensor2=s2)
+
+    else:
+        raise ValueError("Unknown background_type")
+
+    return matrix
+
 def generate_single_batch(settings_cfg, generation_cfg, sd_list, mean_list):
     crosscor_noise = generation_cfg.global_crosscor_noise
     num_sensors = settings_cfg.num_sensors
@@ -152,6 +239,26 @@ def generate_single_batch(settings_cfg, generation_cfg, sd_list, mean_list):
     # df.set_index('Date', inplace=True)
     for index, c in enumerate(columns):
         df[f'AnomalyFlag{index}'] = new_flag_vec(num_data_point_per_batch)
+
+
+
+    # Background
+    if generation_cfg.add_background:
+        bg = generate_background_function(settings_cfg, generation_cfg)
+
+        for sensor_index in range(num_sensors):
+            s1_bg = np.array(bg[:, sensor_index])
+            # s2_bg = np.array(bg["sensor2"])
+
+            if sensor_index in settings_cfg.delayed_sensors:
+                df[f'Sensor{sensor_index}'] = lagged_ema(s1_bg, generation_cfg.alpha_ema)
+            else:
+                df[f'Sensor{sensor_index}'] = s1_bg
+
+            df[f'Measurand{sensor_index}'] = s1_bg + mean_list[sensor_index]
+    else:
+        for sensor_index in range(num_sensors):
+            df[f'Measurand{sensor_index}'] = mean_list[sensor_index]
 
     # print(df.head())
 
@@ -244,14 +351,6 @@ def generate_single_batch(settings_cfg, generation_cfg, sd_list, mean_list):
                                                             "Drift")
     return df
 def generate_data_function_from_cfg(settings_cfg, generation_cfg):
-    poisson_k = generation_cfg.poisson_k
-    poisson_lambda = generation_cfg.poisson_lambda
-    randomwalk_sd = generation_cfg.randomwalk_sd
-    background_rho_rw = generation_cfg.background_rho_rw
-    sine_amplitude = generation_cfg.sine_amplitude
-    sine_period = generation_cfg.sine_period
-    background_phi = generation_cfg.background_phi
-    background_rho = generation_cfg.background_rho
     # print(cfg)
     validate_settings_cfg(settings_cfg)
     num_batches = settings_cfg.num_batches
