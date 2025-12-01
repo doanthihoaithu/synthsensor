@@ -18,7 +18,7 @@ import matplotlib.patches as mpatches
 
 from matplotlib import pyplot as plt
 from scipy.stats import multivariate_normal
-from Python.synthetic_generation import new_flag_vec, pick_spike_starts, update_flags, pick_segment, lagged_ema
+from synthetic_generation import new_flag_vec, pick_spike_starts, update_flags, pick_segment, lagged_ema
 from utils import set_random_seed
 
 # Configure logging
