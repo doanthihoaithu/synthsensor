@@ -11,7 +11,8 @@ generation:
   working_dir: generation
   config_dir: ${generation.working_dir}/config
   data_dir: ${generation.working_dir}/data
-  used_settings: settings_1
+  used_settings: settings_3
+
   add_background: True
   poisson_k: 5
   poisson_lambda: 3
@@ -21,6 +22,7 @@ generation:
   sine_period: 20
   background_phi: 0.8
   background_rho: 0
+  alpha_ema: 0.3
 
   global_crosscor_noise: 0.01
   global_spike_size: 3

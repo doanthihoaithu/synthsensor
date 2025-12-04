@@ -52,16 +52,19 @@ def main(cfg: DictConfig):
     random_seed = cfg.random.seed
     set_random_seed(random_seed)
 
+    used_settings = cfg.generation.used_settings
+
     config_dir = cfg.generation.config_dir
     for f in os.listdir(config_dir):
         settings_path = os.path.join(config_dir, f)
         if 'base' in f:
             continue
-        with open(settings_path, "r") as settings_file:
-            settings_cfg = OmegaConf.load(settings_file)
-            generation_cfg = cfg.generation
-            dfs = generate_data_function_from_cfg(settings_cfg, generation_cfg)
-            save_generated_data(dfs, settings_cfg, cfg)
+        if f.startswith(f'{used_settings}.yaml'):
+            with open(settings_path, "r") as settings_file:
+                settings_cfg = OmegaConf.load(settings_file)
+                generation_cfg = cfg.generation
+                dfs = generate_data_function_from_cfg(settings_cfg, generation_cfg)
+                save_generated_data(dfs, settings_cfg, cfg)
 def save_generated_data(dfs, settings_cfg, global_cfg):
     data_dir = global_cfg.generation.data_dir
     saved_file_dir = os.path.join(data_dir, settings_cfg.settings_name)
