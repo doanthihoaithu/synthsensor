@@ -11,7 +11,7 @@ generation:
   working_dir: generation
   config_dir: ${generation.working_dir}/config
   data_dir: ${generation.working_dir}/data
-  used_settings: settings_3
+  used_settings: settings_one
 
   add_background: True
   poisson_k: 5
