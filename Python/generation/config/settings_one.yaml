@@ -1,7 +1,8 @@
 #defaults:
 #  - settings_base
 
-settings_name: settings_1
+settings_name: settings_one
+num_training_points: 5000
 num_batches: 200
 num_data_point_per_batch: 1000
 max_independent_spikes: 3
