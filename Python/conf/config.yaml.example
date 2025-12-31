@@ -13,6 +13,7 @@ generation:
   working_dir: generation
   config_dir: ${generation.working_dir}/config
   data_dir: ${generation.working_dir}/data
+  zip_data_dir: ${generation.working_dir}/zip
   used_settings: settings_three
 
 #  mean_range: [3, 5, 7]

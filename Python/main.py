@@ -95,17 +95,28 @@ def main(cfg: DictConfig):
                 save_generated_data(dfs, training_df, settings_cfg, cfg)
 def save_generated_data(testing_dfs, training_df, settings_cfg, global_cfg):
     data_dir = global_cfg.generation.data_dir
+    zip_data_dir = global_cfg.generation.zip_data_dir
     saved_file_dir = os.path.join(data_dir, settings_cfg.settings_name)
+    saved_zip_file_dir = os.path.join(zip_data_dir, settings_cfg.settings_name)
     if os.path.exists(saved_file_dir):
         shutil.rmtree(saved_file_dir)
+    if os.path.exists(saved_zip_file_dir):
+        shutil.rmtree(saved_zip_file_dir)
     os.makedirs(saved_file_dir, exist_ok=True)
+    os.makedirs(saved_zip_file_dir, exist_ok=True)
     training_saved_file_path = os.path.join(saved_file_dir, 'synthetic_training.csv')
+    training_saved_zip_file_path = os.path.join(saved_zip_file_dir, 'synthetic_training.csv.zip')
     training_df.to_csv(training_saved_file_path, index=False)
+    training_df.to_csv(training_saved_zip_file_path, index=False, compression='zip')
     log.info(f'Saved training data to {training_saved_file_path}')
+    log.info(f'Saved zipped training data to {training_saved_zip_file_path}')
     for index, df in enumerate(testing_dfs):
         saved_file_path = os.path.join(saved_file_dir, f'synthetic_{index}.csv')
+        saved_zip_file_path = os.path.join(saved_zip_file_dir, f'synthetic_{index}.csv.zip')
         df.to_csv(saved_file_path, index=False)
         log.info(f'Saved generated data to {saved_file_path}')
+        df.to_csv(saved_zip_file_path, index=False, compression='zip')
+        log.info(f'Saved zipped generated data to {saved_zip_file_path}')
 
         if global_cfg.generation.plot_data == True:
             fig = plot_generated_data(df, settings_cfg, global_cfg)
