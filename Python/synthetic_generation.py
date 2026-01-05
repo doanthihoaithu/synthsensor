@@ -41,6 +41,13 @@ def safe_buffer(n, duration, desired=100):
     max_buff = max(0, math.floor((n - duration) / 2) - 1)
     return min(desired, max_buff)
 
+def safe_buffer_from(start, end, duration, desired=100):
+    """
+    Python version of safe_buffer().
+    """
+    max_buff = max(0, math.floor((end + start - duration) / 2) - 1)
+    return min(desired + start, max_buff)
+
 def pick_spike_starts(n, k, max_len, buffer=100):
     """
     Python version of pick_spike_starts().
@@ -53,6 +60,34 @@ def pick_spike_starts(n, k, max_len, buffer=100):
     # Conservative min duration = 1
     b = safe_buffer(n, 1, buffer)
     left = max(1, b + 1)
+    right = n - max_len - b
+
+    # Fallback: no buffer
+    if right < left:
+        left = 1
+        right = n - max_len
+        if right < left:
+            return []
+
+    candidates = list(range(left, right + 1))
+    if len(candidates) == 0:
+        return []
+
+    # Pick up to k unique starts
+    return random.sample(candidates, k=min(k, len(candidates)))
+
+def pick_spike_starts_from(start, n, k, max_len, buffer=100):
+    """
+    Python version of pick_spike_starts().
+    Returns a list of 1-based start indices.
+    """
+
+    if n <= 0 or max_len <= 0 or start + max_len >= n:
+        return []
+
+    # Conservative min duration = 1
+    b = safe_buffer(n-start, 1, buffer)
+    left = max(start, b + start)
     right = n - max_len - b
 
     # Fallback: no buffer
@@ -95,6 +130,30 @@ def pick_segment(n, duration, buffer=100):
 
     return (start, end)
 
+def pick_segment_from(start, end, duration, buffer=100):
+    """
+    Python version of pick_segment().
+    Returns (start, end) using 1-based indexing, or None if not possible.
+    """
+    if end <= 0 or duration <= 0 or end < duration or start + duration >=end:
+        return None
+
+    b = safe_buffer(start - end, duration, buffer)
+    left = max(start, b + start)
+    right = end - duration - b + 1
+
+    # If invalid, fall back to no buffer
+    if right < left:
+        left = 1
+        right = end - duration + 1
+        if right < left:
+            return None
+
+    # Pick uniformly from [left, right]
+    start = random.randint(left, right)
+    end = start + duration - 1
+
+    return (start, end)
 # ============================================================
 #  Mock helper functions (placeholders)
 # ============================================================

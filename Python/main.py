@@ -21,7 +21,8 @@ import matplotlib.patches as mpatches
 
 from matplotlib import pyplot as plt
 from scipy.stats import multivariate_normal
-from synthetic_generation import new_flag_vec, pick_spike_starts, update_flags, pick_segment, lagged_ema
+from synthetic_generation import new_flag_vec, pick_spike_starts, update_flags, pick_segment, lagged_ema, \
+    pick_segment_from, pick_spike_starts_from
 from utils import set_random_seed
 
 # Configure logging
@@ -399,10 +400,10 @@ def generate_train_and_test_data_at_once_not_mixing_anomalies(settings_cfg, gene
     num_training_data_points = settings_cfg.num_training_data_points
     # training_data = generate_background_function(settings_cfg, generation_cfg, mode='train')
 
-    max_independent_spikes = settings_cfg.max_independent_spikes*num_testing_batches
-    max_correlated_spikes = settings_cfg.max_correlated_spikes*num_testing_batches
-    max_independent_drifts = settings_cfg.max_independent_drifts*num_testing_batches
-    max_correlated_drifts = settings_cfg.max_correlated_drifts*num_testing_batches
+    max_independent_spikes = settings_cfg.max_independent_spikes
+    max_correlated_spikes = settings_cfg.max_correlated_spikes
+    max_independent_drifts = settings_cfg.max_independent_drifts
+    max_correlated_drifts = settings_cfg.max_correlated_drifts
     # max_spike_length = settings_cfg.max_spike_length
     # drift_duration = settings_cfg.drift_duration
     # drift_slope = settings_cfg.drift_slope
@@ -471,7 +472,7 @@ def generate_train_and_test_data_at_once_not_mixing_anomalies(settings_cfg, gene
     df = df.iloc[num_training_data_points:, :]
     df.reset_index(drop=True, inplace=True)
 
-    max_length = df.shape[0]
+    # max_length = df.shape[0]
 
     assert df.shape[0] == num_testing_batches* num_data_point_per_batch
 
@@ -485,103 +486,113 @@ def generate_train_and_test_data_at_once_not_mixing_anomalies(settings_cfg, gene
     drift_duration = generation_cfg.global_drift_duration
     max_spike_length = generation_cfg.global_max_spike_length
 
-    number_of_anomaly_types = [1,2,3,4]
+    number_of_anomaly_types = [1,2]
     anomaly_types = [f.name for f in ANOMALY_TYPE]
 
 
 
     for batch_id in range(num_testing_batches):
         num_anomaly_type_in_batch = np.random.choice(number_of_anomaly_types)
+        # selected_anomaly_types = ['DRIFT']
         selected_anomaly_types = np.random.choice(anomaly_types, size=num_anomaly_type_in_batch, replace=False)
         start = num_data_point_per_batch * batch_id
         end = num_data_point_per_batch * batch_id + num_data_point_per_batch
 
-        for key, val in settings_cfg.correlated_anomaly_groups.items():
-            sensor_ids = val['sensor_ids']
-            log.info(f'Generate MTS for sensor groups {sensor_ids}')
+        if 'CORRELATED_SPIKE' in selected_anomaly_types or 'CORRELATED_DRIFT' in selected_anomaly_types:
 
-            n_spikes_corr = np.random.randint(num_testing_batches, max_correlated_spikes)
-            max_spike_length = generation_cfg.global_max_spike_length
-            if n_spikes_corr > 0:
-                starts = pick_spike_starts(max_length, n_spikes_corr,max_spike_length,  buffer=100)
-                for st in starts:
-                    ln = np.random.randint(1, max_spike_length + 1)
-                    ed = min(st + ln - 1, max_length)
-                    u = np.random.rand()
-                    # u = np.random.rand()*0.5 + 0.5
-                    for id in sensor_ids:
-                        amp = min_amp_list[id] + u * (max_amp_list[id] - min_amp_list[id])
-                        # amp1 = min_amp1 + u * (max_amp1 - min_amp1)
-                        # amp2 = min_amp2 + u * (max_amp2 - min_amp2)
-                        sgn = np.random.choice([-1, 1])
-                        df.loc[st - 1:ed - 1, f'Sensor{id}'] += sgn * amp
-                        # df.loc[st-1:ed-1, "Sensor2"] += sgn * amp2
-                        df[f'AnomalyFlag{id}'] = update_flags(df[f'AnomalyFlag{id}'], range(st, ed + 1), "SpikeCorr")
-                        # df["AnomalyFlag2"] = update_flags(df["AnomalyFlag2"], range(st, ed+1), "SpikeCorr")
+            for key, val in settings_cfg.correlated_anomaly_groups.items():
+                sensor_ids = val['sensor_ids']
+                log.info(f'Generate MTS for sensor groups {sensor_ids}')
 
-            n_drift_corr = np.random.randint(num_testing_batches, max_correlated_drifts)
-            for st in range(n_drift_corr):
-                duration = np.random.randint(drift_duration[0], drift_duration[1] + 1)
-                # duration2 = np.random.randint(drift_duration[0], drift_duration[1] + 1)
+                if 'CORRELATED_SPIKE' in selected_anomaly_types:
+                    # n_spikes_corr = np.random.randint(1, max_correlated_spikes)
+                    n_spikes_corr = max_correlated_spikes
+                    max_spike_length = generation_cfg.global_max_spike_length
+                    if n_spikes_corr > 0:
+                        starts = pick_spike_starts_from(start, end, n_spikes_corr,max_spike_length,  buffer=100)
+                        for st in starts:
+                            ln = np.random.randint(1, max_spike_length + 1)
+                            ed = min(st + ln - 1, end)
+                            u = np.random.rand()
+                            # u = np.random.rand()*0.5 + 0.5
+                            for id in sensor_ids:
+                                amp = min_amp_list[id] + u * (max_amp_list[id] - min_amp_list[id])
+                                # amp1 = min_amp1 + u * (max_amp1 - min_amp1)
+                                # amp2 = min_amp2 + u * (max_amp2 - min_amp2)
+                                sgn = np.random.choice([-1, 1])
+                                df.loc[st - 1:ed - 1, f'Sensor{id}'] += sgn * amp
+                                # df.loc[st-1:ed-1, "Sensor2"] += sgn * amp2
+                                df[f'AnomalyFlag{id}'] = update_flags(df[f'AnomalyFlag{id}'], range(st, ed + 1), "SpikeCorr")
+                                # df["AnomalyFlag2"] = update_flags(df["AnomalyFlag2"], range(st, ed+1), "SpikeCorr")
+                if 'CORRELATED_DRIFT' in selected_anomaly_types:
+                    # n_drift_corr = np.random.randint(1, max_correlated_drifts)
+                    n_drift_corr = max_correlated_drifts
+                    for st in range(n_drift_corr):
+                        duration = np.random.randint(drift_duration[0], drift_duration[1] + 1)
+                        # duration2 = np.random.randint(drift_duration[0], drift_duration[1] + 1)
 
-                seg = pick_segment(max_length, duration, buffer=100)
-                if seg is None:
-                    continue
-                st, ed = seg
-                for id in sensor_ids:
-                    spike_size_range, drift_slope_range = get_anomaly_noise_config_by_background_type(generation_cfg,  background_types[id])
-                    slope_direction = np.random.choice([-1, 1])
-                    if slope_direction < 0:
-                        drift_slope = drift_slope_range[:2]
-                    else:
-                        drift_slope = drift_slope_range[-2:]
+                        seg = pick_segment_from(start, end, duration, buffer=100)
+                        if seg is None:
+                            continue
+                        st, ed = seg
+                        for id in sensor_ids:
+                            spike_size_range, drift_slope_range = get_anomaly_noise_config_by_background_type(generation_cfg,  background_types[id])
+                            slope_direction = np.random.choice([-1, 1])
+                            if slope_direction < 0:
+                                drift_slope = drift_slope_range[:2]
+                            else:
+                                drift_slope = drift_slope_range[-2:]
 
-                    slope = np.random.choice(drift_slope)
-                    drift = np.linspace(0, slope, duration)
-                    if background_types[id] == 'ar_1_process':
-                        drift *= noise_mean_list[id]
+                            slope = np.random.choice(drift_slope)
+                            drift = np.linspace(0, slope, duration)
+                            if background_types[id] == 'ar_1_process':
+                                drift *= noise_mean_list[id]
 
-                    df.loc[st - 1:ed - 1, f'Sensor{id}'] += drift
-                    # df.loc[st - 1:ed - 1, "Sensor2"] += drift
-                    df[f'AnomalyFlag{id}'] = update_flags(df[f'AnomalyFlag{id}'], range(st, ed + 1), "DriftCorr")
-                    # df["AnomalyFlag2"] = update_flags(df["AnomalyFlag2"], range(st, ed + 1), "DriftCorr")
+                            df.loc[st - 1:ed - 1, f'Sensor{id}'] += drift
+                            # df.loc[st - 1:ed - 1, "Sensor2"] += drift
+                            df[f'AnomalyFlag{id}'] = update_flags(df[f'AnomalyFlag{id}'], range(st, ed + 1), "DriftCorr")
+                            # df["AnomalyFlag2"] = update_flags(df["AnomalyFlag2"], range(st, ed + 1), "DriftCorr")
 
-        for sensor_index in range(num_sensors):
-            background_type = background_types[sensor_index]
+        if 'SPIKE' in selected_anomaly_types or 'DRIFT' in selected_anomaly_types:
+            # for sensor_index in range(num_sensors):
+                sensor_index = np.random.choice(range(num_sensors))
+                background_type = background_types[sensor_index]
 
-            if ANOMALY_TYPE.SPIKE in BACKGROUND_TYPE_WITH_SUPPORTED_ANOMALY_TYPES[background_type]:
-                n_spikes_s1 = np.random.randint(num_testing_batches, max_independent_spikes)
-                if n_spikes_s1 > 0:
-                    starts = pick_spike_starts(max_length, n_spikes_s1, max_spike_length, buffer=100)
-                    for st in starts:
-                        ln = np.random.randint(1, max_spike_length + 1)
-                        ed = min(st + ln - 1, max_length)
-                        amp = draw_amp(min_amp_list[sensor_index], max_amp_list[sensor_index])
-                        sgn = np.random.choice([-1, 1])
-                        df.loc[st - 1:ed - 1, f'Sensor{sensor_index}'] += sgn * amp
+                if ANOMALY_TYPE.SPIKE in BACKGROUND_TYPE_WITH_SUPPORTED_ANOMALY_TYPES[background_type] and 'SPIKE' in selected_anomaly_types:
+                    # n_spikes_s1 = np.random.randint(1, max_independent_spikes)
+                    n_spikes_s1 = max_independent_spikes
+                    if n_spikes_s1 > 0:
+                        starts = pick_spike_starts_from(start, end, n_spikes_s1, max_spike_length, buffer=100)
+                        for st in starts:
+                            ln = np.random.randint(1, max_spike_length + 1)
+                            ed = min(st + ln - 1, end)
+                            amp = draw_amp(min_amp_list[sensor_index], max_amp_list[sensor_index])
+                            sgn = np.random.choice([-1, 1])
+                            df.loc[st - 1:ed - 1, f'Sensor{sensor_index}'] += sgn * amp
+                            df[f'AnomalyFlag{sensor_index}'] = update_flags(df[f'AnomalyFlag{sensor_index}'], range(st, ed + 1),
+                                                                        "Spike")
+                if ANOMALY_TYPE.DRIFT in BACKGROUND_TYPE_WITH_SUPPORTED_ANOMALY_TYPES[background_type] and 'DRIFT' in selected_anomaly_types:
+                    # n_drifts = np.random.randint(1, max_independent_drifts)
+                    n_drifts = max_independent_drifts
+                    for _ in range(n_drifts):
+                        spike_size_range, drift_slope_range = get_anomaly_noise_config_by_background_type(generation_cfg,  background_types[sensor_index])
+                        slope_direction = np.random.choice([-1, 1])
+                        if slope_direction < 0:
+                            drift_slope = drift_slope_range[:2]
+                        else:
+                            drift_slope = drift_slope_range[-2:]
+
+                        # drift_slope = np.random.choice(drift_slope)
+                        duration = np.random.randint(drift_duration[0], drift_duration[1] + 1)
+                        slope = np.random.uniform(drift_slope[0], drift_slope[1])
+                        seg = pick_segment_from(start, end, duration, buffer=100)
+                        if seg is None:
+                            continue
+                        st, ed = seg
+                        drift = np.linspace(0, slope, duration)
+                        df.loc[st - 1:ed - 1, f'Sensor{sensor_index}'] += drift
                         df[f'AnomalyFlag{sensor_index}'] = update_flags(df[f'AnomalyFlag{sensor_index}'], range(st, ed + 1),
-                                                                    "Spike")
-            if ANOMALY_TYPE.DRIFT in BACKGROUND_TYPE_WITH_SUPPORTED_ANOMALY_TYPES[background_type]:
-                n_drifts = np.random.randint(num_testing_batches, max_independent_drifts)
-                for _ in range(n_drifts):
-                    spike_size_range, drift_slope_range = get_anomaly_noise_config_by_background_type(generation_cfg,  background_types[sensor_index])
-                    slope_direction = np.random.choice([-1, 1])
-                    if slope_direction < 0:
-                        drift_slope = drift_slope_range[:2]
-                    else:
-                        drift_slope = drift_slope_range[-2:]
-
-                    # drift_slope = np.random.choice(drift_slope)
-                    duration = np.random.randint(drift_duration[0], drift_duration[1] + 1)
-                    slope = np.random.uniform(drift_slope[0], drift_slope[1])
-                    seg = pick_segment(max_length, duration, buffer=100)
-                    if seg is None:
-                        continue
-                    st, ed = seg
-                    drift = np.linspace(0, slope, duration)
-                    df.loc[st - 1:ed - 1, f'Sensor{sensor_index}'] += drift
-                    df[f'AnomalyFlag{sensor_index}'] = update_flags(df[f'AnomalyFlag{sensor_index}'], range(st, ed + 1),
-                                                                "Drift")
+                                                                    "Drift")
 
     df['batch_id'] = df.index//num_data_point_per_batch
     return df, training_df

@@ -5,10 +5,10 @@ settings_name: settings_three
 num_training_data_points: 5000
 num_testing_batches: 200
 num_data_point_per_batch: 1000
-max_independent_spikes: 2
+max_independent_spikes: 3
 max_correlated_spikes: 3
-max_independent_drifts: 2
-max_correlated_drifts: 2
+max_independent_drifts: 3
+max_correlated_drifts: 3
 num_sensors: 6
 #max_spike_length: 10
 #spike_size: 1.5
