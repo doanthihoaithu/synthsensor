@@ -92,17 +92,22 @@ def main(cfg: DictConfig):
             with open(settings_path, "r") as settings_file:
                 settings_cfg = OmegaConf.load(settings_file)
                 generation_cfg = cfg.generation
-                dfs, training_df = generate_data_function_from_cfg(settings_cfg, generation_cfg)
-                save_generated_data(dfs, training_df, settings_cfg, cfg)
-def save_generated_data(testing_dfs, training_df, settings_cfg, global_cfg):
+                last_index = 0
+                for iteration in tqdm(range(cfg.generation.num_iterations), desc=f'Iteration ...',
+                                      total=cfg.generation.num_iterations):
+                    dfs, training_df = generate_data_function_from_cfg(settings_cfg, generation_cfg)
+                    save_generated_data(dfs, training_df, settings_cfg, cfg, last_index)
+                    last_index += len(dfs)
+def save_generated_data(testing_dfs, training_df, settings_cfg, global_cfg, last_index=0):
+    # for iteration in tqdm(range(global_cfg.generation.num_iterations), desc=f'Iteration ...', total=global_cfg.generation.num_iterations):
     data_dir = global_cfg.generation.data_dir
     zip_data_dir = global_cfg.generation.zip_data_dir
     saved_file_dir = os.path.join(data_dir, settings_cfg.settings_name)
     saved_zip_file_dir = os.path.join(zip_data_dir, settings_cfg.settings_name)
-    if os.path.exists(saved_file_dir):
-        shutil.rmtree(saved_file_dir)
-    if os.path.exists(saved_zip_file_dir):
-        shutil.rmtree(saved_zip_file_dir)
+    # if os.path.exists(saved_file_dir):
+    #     shutil.rmtree(saved_file_dir)
+    # if os.path.exists(saved_zip_file_dir):
+    #     shutil.rmtree(saved_zip_file_dir)
     os.makedirs(saved_file_dir, exist_ok=True)
     os.makedirs(saved_zip_file_dir, exist_ok=True)
     training_saved_file_path = os.path.join(saved_file_dir, 'synthetic_training.csv')
@@ -111,9 +116,10 @@ def save_generated_data(testing_dfs, training_df, settings_cfg, global_cfg):
     training_df.to_csv(training_saved_zip_file_path, index=False, compression='zip')
     log.info(f'Saved training data to {training_saved_file_path}')
     log.info(f'Saved zipped training data to {training_saved_zip_file_path}')
+
     for index, df in enumerate(testing_dfs):
-        saved_file_path = os.path.join(saved_file_dir, f'synthetic_{index}.csv')
-        saved_zip_file_path = os.path.join(saved_zip_file_dir, f'synthetic_{index}.csv.zip')
+        saved_file_path = os.path.join(saved_file_dir, f'synthetic_{index+last_index}.csv')
+        saved_zip_file_path = os.path.join(saved_zip_file_dir, f'synthetic_{index+last_index}.csv.zip')
         df.to_csv(saved_file_path, index=False)
         log.info(f'Saved generated data to {saved_file_path}')
         df.to_csv(saved_zip_file_path, index=False, compression='zip')
@@ -121,10 +127,9 @@ def save_generated_data(testing_dfs, training_df, settings_cfg, global_cfg):
 
         if global_cfg.generation.plot_data == True:
             fig = plot_generated_data(df, settings_cfg, global_cfg)
-            saved_file_path = os.path.join(saved_file_dir, f'figure_synthetic_{index}.png')
+            saved_file_path = os.path.join(saved_file_dir, f'figure_synthetic_{index+last_index}.png')
             fig.savefig(saved_file_path, bbox_inches='tight')
             log.info(f'Saved figure to {saved_file_path}')
-
     if global_cfg.generation.plot_data == True:
         fig = plot_generated_data(training_df, settings_cfg, global_cfg)
         saved_file_path = os.path.join(saved_file_dir, f'figure_synthetic_training.png')
@@ -489,9 +494,7 @@ def generate_train_and_test_data_at_once_not_mixing_anomalies(settings_cfg, gene
     number_of_anomaly_types = [1,2]
     anomaly_types = [f.name for f in ANOMALY_TYPE]
 
-
-
-    for batch_id in range(num_testing_batches):
+    for batch_id in tqdm(range(num_testing_batches), desc='Generating anomalies in batches', total=num_testing_batches):
         num_anomaly_type_in_batch = np.random.choice(number_of_anomaly_types)
         # selected_anomaly_types = ['DRIFT']
         selected_anomaly_types = np.random.choice(anomaly_types, size=num_anomaly_type_in_batch, replace=False)

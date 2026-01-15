@@ -1,0 +1,77 @@
+#defaults:
+#  - settings_base
+
+settings_name: settings_three
+num_training_data_points: 5000
+num_testing_batches: 200
+num_data_point_per_batch: 1000
+max_independent_spikes: 3
+max_correlated_spikes: 3
+max_independent_drifts: 3
+max_correlated_drifts: 3
+num_sensors: 6
+#max_spike_length: 10
+#spike_size: 1.5
+#drift_duration: [30, 70]
+#drift_slope: [-2, -1.5, 1.5, 2]
+delayed_sensors: []
+#sensor_background_types:
+#- random_walk
+#- random_walk
+#- ar_1_process
+#- ar_1_process
+#- sine_wave
+#- poisson_moving_average
+correlated_sensor_groups:
+#  random_walk_groups:
+#    randomwalk_sd: 0.5 # Random Walk Step Size in the UI, randomwalk_sd > 0
+#    groups:
+#      0:
+#        background_rho_rw: 0.8 # Background Cross-Sensor Correlation in the UI, -1 <= x <= 1
+#        sensor_ids: [0,1]
+  ar_1_process_groups:
+    groups:
+      0:
+        background_phi: 0.95 # Background AR(1) Autocorrelation in the UI, 0 < abs(background_phi) < 1
+        background_rho: 0.6 # Background Cross-Sensor Correlation, -1 <= background_rho <= 1
+        sensor_ids: [0,1]
+  independent_groups:
+    group_0:
+      background_type: sine_wave
+      sine_period: 100
+      sine_amplitude: 3
+      sensor_id: 2
+    group_1:
+      background_type: sine_wave
+      sine_period: 200
+      sine_amplitude: 5
+      sensor_id: 3
+    group_2:
+      background_type: poisson_moving_average
+      poisson_k: 50 # Moving Average Window (k)
+      poisson_lambda: 5 # Poisson Noise Level
+      sensor_id: 4
+    group_3:
+      background_type: poisson_moving_average
+      poisson_k: 100 # Moving Average Window (k)
+      poisson_lambda: 5 # Poisson Noise Level
+      sensor_id: 5
+#    group_2:
+#      background_type: sine_wave
+#      sine_period: 300
+#      sine_amplitude: 3
+#      sensor_id: 6
+
+correlated_anomaly_groups:
+  group_0:
+    sensor_ids:
+    - 0
+    - 1
+  group_1:
+    sensor_ids:
+    - 2
+    - 3
+  group_2:
+    sensor_ids:
+    - 4
+    - 5

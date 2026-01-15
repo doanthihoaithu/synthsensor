@@ -14,7 +14,8 @@ generation:
   config_dir: ${generation.working_dir}/config
   data_dir: ${generation.working_dir}/data
   zip_data_dir: ${generation.working_dir}/zip
-  used_settings: settings_three
+  used_settings: settings_five
+  num_iterations: 14
 
 #  mean_range: [3, 5, 7]
 #  sd_range: [0.1, 0.2]
@@ -22,7 +23,7 @@ generation:
   global_noise_sd: 0.1
   global_crosscor_noise: 0
   global_max_spike_length: 10
-  global_drift_duration: [30,70]
+  global_drift_duration: [50,100]
   add_background: True
 #  poisson_k: 50
 #  poisson_lambda: 3
