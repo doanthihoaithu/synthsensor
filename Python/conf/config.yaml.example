@@ -11,16 +11,17 @@ generation:
   plot_data: False
   mix_anomalies: False
   working_dir: generation
+  save_generation_history_dir: ${generation.working_dir}/history/${generation.used_settings}
   config_dir: ${generation.working_dir}/config
-  data_dir: ${generation.working_dir}/data
-  zip_data_dir: ${generation.working_dir}/zip
-  used_settings: settings_five
+  zip_data_dir: ${generation.working_dir}/zip/${generation.used_settings}
+  used_settings: settings_six
+  data_dir: ${generation.working_dir}/data/${generation.used_settings}
   num_iterations: 14
 
 #  mean_range: [3, 5, 7]
 #  sd_range: [0.1, 0.2]
   global_noise_mean: 5
-  global_noise_sd: 0.1
+  global_noise_sd: 0.05
   global_crosscor_noise: 0
   global_max_spike_length: 10
   global_drift_duration: [50,100]

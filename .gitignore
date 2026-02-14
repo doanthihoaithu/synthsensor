@@ -9,7 +9,11 @@
 **.png
 Python/conf/config.yaml
 Python/generation/data
+Python/generation/zip
+Python/generation/history
 
 Python/.hydra/
-Python/__pycache__/
 Python/**.log
+**/__pycache__/
+
+

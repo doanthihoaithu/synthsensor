@@ -1,0 +1,228 @@
+#defaults:
+#  - settings_base
+
+settings_name: settings_six
+num_training_data_points: 10000
+num_testing_batches: 1000
+num_data_point_per_batch: 8640
+num_data_point_per_batch_range:
+  min: 5000
+  max: 8000
+max_independent_spikes: 5
+max_correlated_spikes: 5
+max_independent_drifts: 3
+max_correlated_drifts: 3
+num_sensors: 10
+#max_spike_length: 10
+#spike_size: 1.5
+#drift_duration: [30, 70]
+#drift_slope: [-2, -1.5, 1.5, 2]
+delayed_sensors: []
+
+default_cross_correlation_matrix_config:
+  ar_1_process_correlation_matrix:
+    2_sensors:
+      background_rho_dict:  # Background Cross-Sensor Correlation, -1 <= background_rho <= 1
+        pair_0_1: 0.9
+    3_sensors:
+      background_rho_dict:  # Background Cross-Sensor Correlation, -1 <= background_rho <= 1
+#        pair_0_1: 0.6
+#        pair_0_2: -0.3
+#        pair_1_2: 0.2
+        pair_0_1: 0.9
+        pair_0_2: 0.8
+        pair_1_2: 0.5
+  noise_correlation_matrix:
+    2_sensors:
+      noise_rho_dict:  # Noise Cross-Sensor Correlation, -1 <= noise_rho <= 1
+        pair_0_1: 0.1
+    3_sensors:
+      noise_rho_dict:  # Noise Cross-Sensor Correlation, -1 <= noise_rho <= 1
+        pair_0_1: 0.1
+        pair_0_2: 0.1
+        pair_1_2: 0.1
+
+default_value_config:
+  ar_1_process:
+    first:
+      background_phi: 0.99 #0 <= background_phi < 1
+      noise_mean: 5
+      noise_sd: 0.1
+      spike_length_range: [5, 10]
+      spike_magnitude_range: [1.0 , 2.0] # fraction of noise mean
+      drift_duration_range: [50, 150]
+      drift_slope_range: [-10, -8, 8, 10]
+    second:
+      background_phi: 0.95
+      noise_mean: 5
+      noise_sd: 0.1
+      spike_length_range: [ 5, 10 ]
+      spike_magnitude_range: [ 1.0 , 2.0 ] # fraction of noise mean
+      drift_duration_range: [ 50, 150 ]
+      drift_slope_range: [-10, -8, 8, 10]
+  sine_wave:
+    first:
+      period: 200
+      amplitude: 5
+      noise_mean: ${.amplitude} # Set noise_mean to be the same as sine_amplitude
+      noise_sd: 0.5
+      spike_length_range: [ 5, 10 ]
+      spike_magnitude_range: [ 0.2 , 1.5 ] # fraction of noise mean
+      drift_duration_range: [ 50, 150 ]
+      drift_slope_range: [ -4, -3, 3, 4 ]
+    second:
+      period: 400
+      amplitude: 10
+      noise_mean: ${.amplitude} # Set noise_mean to be the same as sine_amplitude
+      noise_sd: 1
+      spike_length_range: [ 5, 10 ]
+      spike_magnitude_range: [ 0.2 , 1.0 ] # fraction of noise mean
+      drift_duration_range: [ 50, 150 ]
+      drift_slope_range: [ -4, -3, 3, 4 ]
+  poisson_moving_average:
+    first:
+      poisson_noise_level: 5
+      moving_average_window: 100
+      noise_mean: ${.poisson_noise_level} # Set noise_mean to be the same as poisson_lambda
+      noise_sd: 0.1
+      spike_length_range: [ 5, 10 ]
+      spike_magnitude_range: [ 0.3 , 1.0 ] # fraction of noise mean
+      drift_duration_range: [ 50, 150 ]
+      drift_slope_range: [ -2, -1.5, 1.5, 2 ]
+    second:
+      poisson_noise_level: 5
+      moving_average_window: 100
+      noise_mean: ${.poisson_noise_level} # Set noise_mean to be the same as poisson_lambda
+      noise_sd: 0.1
+      spike_length_range: [ 5, 10 ]
+      spike_magnitude_range: [ 0.3 , 1.0 ] # fraction of noise mean
+      drift_duration_range: [ 50, 150 ]
+      drift_slope_range: [ -2, -1.5, 1.5, 2 ]
+
+ar_1_process_sensors:
+  id_list: [0,1,2]
+  correlated_groups:
+      group_0:
+        ids: [0,1,2] # Sensor IDs in the first correlated group for AR(1) Process
+        corresponding_index: [0,1,2] # Corresponding Index for the first correlated group in AR(1) Process
+        background_correlated_dict: ${default_cross_correlation_matrix_config.ar_1_process_correlation_matrix.3_sensors.background_rho_dict} # Background Cross-Sensor Correlation Matrix for the first correlated group in AR(1) Process
+        noise_cross_correlated_dict: ${default_cross_correlation_matrix_config.noise_correlation_matrix.3_sensors.noise_rho_dict} # Noise Cross-Sensor Correlation Matrix for the first correlated group in AR(1) Process
+  background_phi_list:
+    - ${default_value_config.ar_1_process.first.background_phi} # Background AR(1) Autocorrelation in the UI, 0 < abs(background_phi) < 1
+    - ${default_value_config.ar_1_process.first.background_phi}
+    - ${default_value_config.ar_1_process.first.background_phi}
+  noise_mean_list:
+    - ${default_value_config.ar_1_process.first.noise_mean} # Noise Mean in the UI
+    - ${default_value_config.ar_1_process.first.noise_mean}
+    - ${default_value_config.ar_1_process.first.noise_mean}
+  noise_sd_list:
+    - ${default_value_config.ar_1_process.first.noise_sd} # Noise Standard Deviation in the UI, noise_sd > 0
+    - ${default_value_config.ar_1_process.first.noise_sd}
+    - ${default_value_config.ar_1_process.first.noise_sd}
+  spike_length_range_list:
+    - ${default_value_config.ar_1_process.first.spike_length_range} # Spike Length Range in the UI, spike_length_range = [min, max], spike_length_range > 0
+    - ${default_value_config.ar_1_process.first.spike_length_range}
+    - ${default_value_config.ar_1_process.first.spike_length_range}
+  spike_magnitude_range_list:
+    - ${default_value_config.ar_1_process.first.spike_magnitude_range} # Spike Magnitude Range in the UI, spike_magnitude_range = [min, max], spike_magnitude_range > 0
+    - ${default_value_config.ar_1_process.first.spike_magnitude_range}
+    - ${default_value_config.ar_1_process.first.spike_magnitude_range}
+  drift_duration_range_list:
+    - ${default_value_config.ar_1_process.first.drift_duration_range} # Drift Duration Range in the UI, drift_duration_range = [min, max], drift_duration_range > 0
+    - ${default_value_config.ar_1_process.first.drift_duration_range}
+    - ${default_value_config.ar_1_process.first.drift_duration_range}
+  drift_slope_range_list:
+    - ${default_value_config.ar_1_process.first.drift_slope_range} # Drift Slope Range in the UI, drift_slope_range = [min, max]
+    - ${default_value_config.ar_1_process.first.drift_slope_range}
+    - ${default_value_config.ar_1_process.first.drift_slope_range}
+sine_wave_sensors:
+  id_list: [3,4,5,6,7]
+  correlated_groups:
+      group_0:
+        ids: [3,4] # Sensor IDs in the first correlated group for Sine Wave
+        corresponding_index: [0,1] # Corresponding Index for the first correlated group in Sine Wave
+        noise_cross_correlated_dict: ${default_cross_correlation_matrix_config.noise_correlation_matrix.2_sensors.noise_rho_dict} # Noise Cross-Sensor Correlation Matrix for the first correlated group in Sine Wave
+      group_1:
+        ids: [5,6,7] # Sensor IDs in the second correlated group for Sine Wave
+        corresponding_index: [0,1,2] # Corresponding Index for the second correlated group in Sine Wave
+        noise_cross_correlated_dict: ${default_cross_correlation_matrix_config.noise_correlation_matrix.3_sensors.noise_rho_dict} # Noise Cross-Sensor Correlation Matrix for the second correlated group in Sine Wave
+  sine_period_list:
+    - ${default_value_config.sine_wave.first.period} # Sine Wave Period in the UI, sine_period > 0
+    - ${default_value_config.sine_wave.first.period}
+    - ${default_value_config.sine_wave.second.period}
+    - ${default_value_config.sine_wave.second.period}
+    - ${default_value_config.sine_wave.second.period}
+  sine_amplitude_list:  # Sine Wave Amplitude in the UI, sine_amplitude > 0
+    - ${default_value_config.sine_wave.first.amplitude}
+    - ${default_value_config.sine_wave.first.amplitude}
+    - ${default_value_config.sine_wave.second.amplitude}
+    - ${default_value_config.sine_wave.second.amplitude}
+    - ${default_value_config.sine_wave.second.amplitude}
+  noise_mean_list:
+    - ${default_value_config.sine_wave.first.noise_mean} # Set noise_mean to be the same as sine_amplitude
+    - ${default_value_config.sine_wave.first.noise_mean}
+    - ${default_value_config.sine_wave.second.noise_mean} # Set noise_mean to be the same as sine_amplitude
+    - ${default_value_config.sine_wave.second.noise_mean}
+    - ${default_value_config.sine_wave.second.noise_mean}
+  noise_sd_list:
+    - ${default_value_config.sine_wave.first.noise_sd}
+    - ${default_value_config.sine_wave.first.noise_sd}
+    - ${default_value_config.sine_wave.second.noise_sd}
+    - ${default_value_config.sine_wave.second.noise_sd}
+    - ${default_value_config.sine_wave.second.noise_sd}
+  spike_length_range_list:
+    - ${default_value_config.sine_wave.first.spike_length_range} # Spike Length Range in the UI, spike_length_range = [min, max], spike_length_range > 0
+    - ${default_value_config.sine_wave.first.spike_length_range}
+    - ${default_value_config.sine_wave.second.spike_length_range}
+    - ${default_value_config.sine_wave.second.spike_length_range}
+    - ${default_value_config.sine_wave.second.spike_length_range}
+  spike_magnitude_range_list:
+    - ${default_value_config.sine_wave.first.spike_magnitude_range} # Spike Magnitude Range in the UI, spike_magnitude_range = [min, max], spike_magnitude_range > 0
+    - ${default_value_config.sine_wave.first.spike_magnitude_range}
+    - ${default_value_config.sine_wave.second.spike_magnitude_range}
+    - ${default_value_config.sine_wave.second.spike_magnitude_range}
+    - ${default_value_config.sine_wave.second.spike_magnitude_range}
+  drift_duration_range_list:
+    - ${default_value_config.sine_wave.first.drift_duration_range} # Drift Duration Range in the UI, drift_duration_range = [min, max], drift_duration_range > 0
+    - ${default_value_config.sine_wave.first.drift_duration_range}
+    - ${default_value_config.sine_wave.second.drift_duration_range}
+    - ${default_value_config.sine_wave.second.drift_duration_range}
+    - ${default_value_config.sine_wave.second.drift_duration_range}
+  drift_slope_range_list:
+    - ${default_value_config.sine_wave.first.drift_slope_range} # Drift Slope Range in the UI, drift_slope_range = [min, max]
+    - ${default_value_config.sine_wave.first.drift_slope_range}
+    - ${default_value_config.sine_wave.second.drift_slope_range}
+    - ${default_value_config.sine_wave.second.drift_slope_range}
+    - ${default_value_config.sine_wave.second.drift_slope_range}
+
+poisson_moving_average_sensors:
+    id_list: [8,9]
+    correlated_groups:
+      group_0:
+        ids: [8,9] # Sensor IDs in the first correlated group for Poisson Moving Average
+        corresponding_index: [0,1] # Corresponding Index for the first correlated group in Poisson Moving Average
+        noise_cross_correlated_dict: ${default_cross_correlation_matrix_config.noise_correlation_matrix.2_sensors.noise_rho_dict} # Noise Cross-Sensor Correlation Matrix for the first correlated group in Poisson Moving Average
+    poisson_k_list:
+        - ${default_value_config.poisson_moving_average.first.moving_average_window} # Moving Average Window (k) in the UI, poisson_k > 0
+        - ${default_value_config.poisson_moving_average.first.moving_average_window}
+    poisson_lambda_list:
+        - ${default_value_config.poisson_moving_average.first.poisson_noise_level} # Poisson Noise Level in the UI, poisson_lambda > 0
+        - ${default_value_config.poisson_moving_average.first.poisson_noise_level}
+    noise_mean_list:
+        - ${default_value_config.poisson_moving_average.first.noise_mean} # Set noise_mean to be the same as poisson_lambda
+        - ${default_value_config.poisson_moving_average.first.noise_mean}
+    noise_sd_list:
+        - ${default_value_config.poisson_moving_average.first.noise_sd}
+        - ${default_value_config.poisson_moving_average.first.noise_sd}
+    spike_length_range_list:
+        - ${default_value_config.poisson_moving_average.first.spike_length_range} # Spike Length Range in the UI, spike_length_range = [min, max], spike_length_range > 0
+        - ${default_value_config.poisson_moving_average.first.spike_length_range}
+    spike_magnitude_range_list:
+        - ${default_value_config.poisson_moving_average.first.spike_magnitude_range} # Spike Magnitude Range in the UI, spike_magnitude_range = [min, max], spike_magnitude_range > 0
+        - ${default_value_config.poisson_moving_average.first.spike_magnitude_range}
+    drift_duration_range_list:
+        - ${default_value_config.poisson_moving_average.first.drift_duration_range} # Drift Duration Range in the UI, drift_duration_range = [min, max], drift_duration_range > 0
+        - ${default_value_config.poisson_moving_average.first.drift_duration_range}
+    drift_slope_range_list:
+        - ${default_value_config.poisson_moving_average.first.drift_slope_range} # Drift Slope Range in the UI, drift_slope_range = [min, max]
+        - ${default_value_config.poisson_moving_average.first.drift_slope_range}
