@@ -5,8 +5,8 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 
-from Python.entities.sensors.data_model import Sensor, ValueRange
-from Python.synthetic_generation import pick_spike_starts_from, update_flags, pick_segment
+from entities.sensors.data_model import Sensor, ValueRange
+from synthetic_generation import pick_spike_starts_from, update_flags, pick_segment
 
 
 class ANOMALY_TYPE(Enum):

@@ -15,9 +15,9 @@ from scipy.stats import multivariate_normal
 import numpy as np
 import logging
 
-from Python.anomaly_generator import AnomalyGenerationAction, GENERATION_STRATEGY, AnomalyGenerator, \
+from anomaly_generator import AnomalyGenerationAction, GENERATION_STRATEGY, AnomalyGenerator, \
     AnomalyGenerationActionMix
-from Python.entities.sensors.data_model import Sensor, Noise, AR_1_Process_Signal, ValueRange, ValueList, \
+from entities.sensors.data_model import Sensor, Noise, AR_1_Process_Signal, ValueRange, ValueList, \
     Sine_Wave_Signal, Poisson_Moving_Average_Signal, CorrelationConstraint, BACKGROUND_TYPE, CORRELATION_CONSTRAINT_TYPE
 
 # Configure logging

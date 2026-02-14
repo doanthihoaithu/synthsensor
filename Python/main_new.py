@@ -22,8 +22,8 @@ import matplotlib.patches as mpatches
 from matplotlib import pyplot as plt
 from scipy.stats import multivariate_normal
 
-from Python.anomaly_generator import ANOMALY_TYPE
-from Python.generation_manager import GenerationManager
+from anomaly_generator import ANOMALY_TYPE
+from generation_manager import GenerationManager
 from utils import set_random_seed
 
 # Configure logging
