@@ -8,7 +8,8 @@ random:
   seed: 42
 
 generation:
-  plot_data: False
+  fixed_number_testing_batches: True
+  plot_data: True
   mix_anomalies: False
   working_dir: generation
   save_generation_history_dir: ${generation.working_dir}/history/${generation.used_settings}
@@ -17,6 +18,7 @@ generation:
   used_settings: settings_six
   data_dir: ${generation.working_dir}/data/${generation.used_settings}
   num_iterations: 14
+  enrich: False
 
 #  mean_range: [3, 5, 7]
 #  sd_range: [0.1, 0.2]

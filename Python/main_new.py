@@ -99,14 +99,22 @@ def main(cfg: DictConfig):
 
                 generation_manager = GenerationManager(settings_cfg, generation_cfg, add_background=True)
 
-                generation_manager.generate_normal_data()
-                generation_manager.generate_anomalies_for_all_testing_dfs()
-                training_df = generation_manager.get_training_df()
-                print('Training df with shape', training_df.shape)
-                testing_dfs_dict = generation_manager.get_testing_dfs_dict()
-                for batch_id, testing_batch in testing_dfs_dict.items():
-                    print('Batch', batch_id, 'shape', testing_batch.shape)
-                generation_manager.save_generated_data()
+                if cfg.generation.enrich == False:
+                    generation_manager.generate_normal_data()
+                    generation_manager.generate_anomalies_for_all_testing_dfs()
+                    training_df = generation_manager.get_training_df()
+                    print('Training df with shape', training_df.shape)
+                    testing_dfs_dict = generation_manager.get_testing_dfs_dict()
+                    generation_manager.save_generated_data()
+                    for batch_id, testing_batch in testing_dfs_dict.items():
+                        print('Batch', batch_id, 'shape', testing_batch.shape)
+
+                else:
+                    generation_manager.generate_normal_data()
+                    mutated_data_dict = generation_manager.enrich_data_to_mitigate_class_imbalance()
+                    generation_manager.save_mutated_data(mutated_data_dict)
+
+
                 if cfg.generation.plot_data == True:
                     generation_manager.plot_generated_data()
 

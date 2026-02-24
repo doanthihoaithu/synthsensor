@@ -15,6 +15,8 @@ from scipy.stats import multivariate_normal
 import numpy as np
 import logging
 
+from action_generator import ActionGenerator
+from anomaly_mutator import AnomalyMutator
 from anomaly_generator import AnomalyGenerationAction, GENERATION_STRATEGY, AnomalyGenerator, \
     AnomalyGenerationActionMix
 from entities.sensors.data_model import Sensor, Noise, AR_1_Process_Signal, ValueRange, ValueList, \
@@ -45,7 +47,8 @@ class GenerationManager:
 
 
         self.num_training_data_points: int = settings_cfg.num_training_data_points
-        self.num_testing_batches: int = settings_cfg.num_testing_batches
+        assert self.num_testing_batches > 0
+        # self.num_testing_batches: int = settings_cfg.num_testing_batches if generation_cfg.fixed_number_testing_batches == True else len(self.possible_action_combination)
         tmp_range = settings_cfg.num_data_point_per_batch_range
         self.num_data_point_per_testing_batch_range: tuple[int, int] = tmp_range.min, tmp_range.max
         assert self.num_data_point_per_testing_batch_range[1] > self.num_data_point_per_testing_batch_range[0]
@@ -68,6 +71,8 @@ class GenerationManager:
 
         self.sensors_dict: dict[int, Sensor] = {sensor.id:sensor for sensor in sensors}
         self.num_sensors = len(self.sensors_dict)
+        num_testing_batches = self.get_possible_generation_actions()
+        self.num_testing_batches = num_testing_batches if self.generation_cfg.fixed_number_testing_batches == False else settings_cfg.num_testing_batches
         # self.background_types = [s.background_signal.background_type for s in self.sensors]
         # self.noise_mean_list = [s.normal_noise_mean for s in self.sensors]
         # self.noise_sd_list = [s.normal_noise_sd for s in self.sensors]
@@ -79,9 +84,30 @@ class GenerationManager:
         # self.initialize_normal_noise_data()
         # assert self.noise_mean_list is not None
         # assert self.noise_sd_list is not None
-        self.init_various_number_of_data_points_for_testing_batches()
-        assert len(self.testing_batch_size_list) == self.num_testing_batches
 
+        self.init_various_number_of_data_points_for_testing_batches()
+
+        # assert len(self.testing_batch_size_list) == self.num_testing_batches
+
+    def get_possible_generation_actions(self):
+        action_generator = ActionGenerator(n_sensors=self.num_sensors, correlated_constraints=self.correlated_constraints)
+        # independent_actions = action_generator.generate_independent_actions_for_single_dimension()
+        # correlated_actions = action_generator.generate_correlated_actions_for_multiple_dimension()
+        action_groups_dictionary = action_generator.generate_mix_actions()
+        num_of_testing_batches = (len(action_groups_dictionary['action_on_single_dimension'])*2 +
+                                  len(action_groups_dictionary['action_on_single_correlated_group'])*5 +
+                                  len(action_groups_dictionary['mixed_actions'])*2)
+        action_plan = []
+        for i in range(2):
+            action_plan.extend(action_groups_dictionary['action_on_single_dimension'])
+        for i in range(5):
+            action_plan.extend(action_groups_dictionary['action_on_single_correlated_group'])
+        for i in range(2):
+            action_plan.extend(action_groups_dictionary['mixed_actions'])
+
+        self.possible_action_combination = action_plan
+
+        return num_of_testing_batches
     def generate_normal_data(self):
         self.initialize_general_data()
         self.generate_background_data()
@@ -92,53 +118,54 @@ class GenerationManager:
         self.set_training_df()
         self.set_testing_dfs_dict()
 
+
     def generate_anomalies_for_all_testing_dfs(self):
         actions_for_batches = dict()
-        strategies = [
-                      GENERATION_STRATEGY.ONLY_INDEPENDENT_SPIKE_ANOMALIES,
-                      GENERATION_STRATEGY.ONLY_INDEPENDENT_DRIFT_ANOMALIES,
-                      GENERATION_STRATEGY.MIX_INDEPENDENT_ANOMALIES,
-                      ]
-        impacted_dimension_ids_list = list(itertools.chain(*[itertools.combinations(range(self.num_sensors), ni) for ni in range((self.num_sensors + 1)//2)]))
-        number_of_anomalies_list = [1, 2, 3]
-        configurations_independent = list(itertools.product(strategies, impacted_dimension_ids_list, number_of_anomalies_list))
+        # strategies = [
+        #               GENERATION_STRATEGY.ONLY_INDEPENDENT_SPIKE_ANOMALIES,
+        #               GENERATION_STRATEGY.ONLY_INDEPENDENT_DRIFT_ANOMALIES,
+        #               GENERATION_STRATEGY.MIX_INDEPENDENT_ANOMALIES,
+        #               ]
+        # impacted_dimension_ids_list = list(itertools.chain(*[itertools.combinations(range(self.num_sensors), ni) for ni in range((self.num_sensors + 1)//2)]))
+        # number_of_anomalies_list = [1, 2, 3]
+        # configurations_independent = list(itertools.product(strategies, impacted_dimension_ids_list, number_of_anomalies_list))
+        #
+        # correlated_strategies = [
+        #                             GENERATION_STRATEGY.ONLY_CORRELATED_SPIKE_ANOMALIES,
+        #                             GENERATION_STRATEGY.ONLY_CORRELATED_DRIFT_ANOMALIES,
+        #                             GENERATION_STRATEGY.MIX_CORRELATED_ANOMALIES
+        #                         ]
+        # impacted_dimension_correlated_ids_list = [correlated_constraint.sensor_ids for correlated_constraint in
+        #                                           self.correlated_constraints
+        #                                           if
+        #                                           correlated_constraint.correlation_type == CORRELATION_CONSTRAINT_TYPE.NOISE_CROSS_CORRELATION]
+        # configurations_correlated = list(itertools.product(correlated_strategies, impacted_dimension_correlated_ids_list, number_of_anomalies_list[1:]))
+        # # configurations = configurations_correlated + configurations_independent
+        # # random.shuffle(configurations)
+        # # configurations = configurations_independent
+        # # configurations = configurations_independent
+        #
+        # generation_logs = dict()
+        #
+        # mix_anomalies_strategies = ['independent', 'correlated', 'mix']
+        # selected_strategy_for_batches = np.random.randint(0, 3, size=len(list(self.testing_dfs_dict.keys())))
 
-        correlated_strategies = [
-                                    GENERATION_STRATEGY.ONLY_CORRELATED_SPIKE_ANOMALIES,
-                                    GENERATION_STRATEGY.ONLY_CORRELATED_DRIFT_ANOMALIES,
-                                    GENERATION_STRATEGY.MIX_CORRELATED_ANOMALIES
-                                ]
-        impacted_dimension_correlated_ids_list = [correlated_constraint.sensor_ids for correlated_constraint in
-                                                  self.correlated_constraints
-                                                  if
-                                                  correlated_constraint.correlation_type == CORRELATION_CONSTRAINT_TYPE.NOISE_CROSS_CORRELATION]
-        configurations_correlated = list(itertools.product(correlated_strategies, impacted_dimension_correlated_ids_list, number_of_anomalies_list[1:]))
-        # configurations = configurations_correlated + configurations_independent
-        # random.shuffle(configurations)
-        # configurations = configurations_independent
-        # configurations = configurations_independent
-
-        generation_logs = dict()
-
-        mix_anomalies_strategies = ['independent', 'correlated', 'mix']
-        selected_strategy_for_batches = np.random.randint(0, 3, size=len(list(self.testing_dfs_dict.keys())))
-
-        for (batch_id, batch_df), selected_strategy in zip(self.testing_dfs_dict.items(), selected_strategy_for_batches):
+        for (batch_id, batch_df), actions in zip(self.testing_dfs_dict.items(), random.choices(self.possible_action_combination, k=self.num_testing_batches)):
             # actions = [AnomalyGenerationAction(strategy=GENERATION_STRATEGY.ONLY_INDEPENDENT_SPIKE_ANOMALIES,
             #                                    impacted_dimension_ids=[0],
             #                                    number_of_anomalies=5
             #                                    )]
-            selected_configurations = []
-            for k in range(1,4):
-                if mix_anomalies_strategies[selected_strategy] == 'independent' or mix_anomalies_strategies[selected_strategy]=='mix':
-                    selected_configurations.extend(random.choices(configurations_independent, k=k))
-                if mix_anomalies_strategies[selected_strategy] == 'correlated' or mix_anomalies_strategies[selected_strategy]=='mix':
-                    selected_configurations.extend(random.choices(configurations_correlated, k=k))
-            actions = [AnomalyGenerationAction(strategy=strategy,
-                                               impacted_dimension_ids=impacted_dimension_ids,
-                                               number_of_anomalies=number_of_anomalies
-                                               )
-                       for strategy, impacted_dimension_ids, number_of_anomalies in selected_configurations]
+            # selected_configurations = []
+            # for k in range(1,4):
+            #     if mix_anomalies_strategies[selected_strategy] == 'independent' or mix_anomalies_strategies[selected_strategy]=='mix':
+            #         selected_configurations.extend(random.choices(configurations_independent, k=k))
+            #     if mix_anomalies_strategies[selected_strategy] == 'correlated' or mix_anomalies_strategies[selected_strategy]=='mix':
+            #         selected_configurations.extend(random.choices(configurations_correlated, k=k))
+            # actions = [AnomalyGenerationAction(strategy=strategy,
+            #                                    impacted_dimension_ids=impacted_dimension_ids,
+            #                                    number_of_anomalies=number_of_anomalies
+            #                                    )
+            #            for strategy, impacted_dimension_ids, number_of_anomalies in selected_configurations]
             # actions.extend([AnomalyGenerationActionMix(strategy=strategy,
             #                                    impacted_dimension_ids=impacted_dimension_ids,
             #                                    number_of_anomalies=number_of_anomalies,
@@ -177,6 +204,71 @@ class GenerationManager:
         #                        default=lambda o: o.__json__() if hasattr(o, "__json__") else None,
         #                        indent=4))
 
+
+    def enrich_data_to_mitigate_class_imbalance(self):
+        history_dir = self.generation_cfg.save_generation_history_dir
+        generation_history_df = pd.read_csv(os.path.join(history_dir, 'generation_history_with_labels.csv'))
+        metric_for_label = 'VUS_PR'
+        print('generation_history_df', generation_history_df.shape)
+        batch_label_df = generation_history_df[['batch_id', f'label_by_{metric_for_label}']].value_counts().to_frame('count').reset_index()[['batch_id', f'label_by_{metric_for_label}']]
+        print('batch_label_df', batch_label_df)
+        label_distribution_df = batch_label_df[f'label_by_{metric_for_label}'].value_counts().to_frame('count').reset_index().sort_values(by='count')
+        label_distribution_df['percentage'] = label_distribution_df['count'] / label_distribution_df['count'].sum()
+        print(label_distribution_df)
+        batch_id_to_enrich_list = []
+        for entry in label_distribution_df.itertuples():
+            if entry.percentage < 0.3:
+                batch_id_to_enrich_list.extend(batch_label_df[batch_label_df['label_by_VUS_PR'] == entry.label_by_VUS_PR]['batch_id'].unique())
+        print('batch_id_to_enrich_list', batch_id_to_enrich_list)
+
+        actions_for_batches = dict()
+        for batch_id in batch_id_to_enrich_list:
+            actions = generation_history_df[generation_history_df['batch_id'] == batch_id][['strategy', 'impacted_dimension_ids', 'number_of_anomalies']].to_dict(orient='records')
+            actions_objects = self.convert_to_actions_objects(actions)
+            print(f'Enriching batch {batch_id} with actions:')
+            for a in actions_objects:
+                print(a.__json__())
+
+            # enriched_batches = [f'{batch_id}_enriched_{i}' for i in range(50)]
+            # actions_for_batches[batch_id] = {e: actions_objects for e in enriched_batches}
+            actions_for_batches[batch_id] = actions_objects
+
+        anomaly_generator = AnomalyGenerator(testing_dfs_dict=self.testing_dfs_dict,
+                                             sensors_dict=self.sensors_dict,
+                                             )
+        anomaly_mutator = AnomalyMutator(anomaly_generator, actions_for_batches)
+        extended_action_for_batches = anomaly_mutator.enrich_specific_batch_with_anomalies(actions_for_batches=actions_for_batches)
+
+        save_generation_history_dir = self.generation_cfg.save_generation_history_dir
+        os.makedirs(save_generation_history_dir, exist_ok=True)
+        generation_history_df = pd.DataFrame(
+            columns=['batch_id', 'strategy', 'impacted_dimension_ids', 'number_of_anomalies'])
+        for batch_id, (batch_id_to_enrich, actions) in extended_action_for_batches.items():
+            new_df = pd.DataFrame(action.__dict__ for action in actions)
+            new_df['batch_id'] = batch_id
+            generation_history_df = pd.concat([generation_history_df, new_df], ignore_index=True)
+            # for action in actions:
+            #     generation_history_df.loc[len(generation_history_df)] = {
+            #         'batch_id': batch_id,
+            #         'strategy': action.strategy.name,
+            #         'impacted_dimension_ids': action.impacted_dimension_ids,
+            #         'number_of_anomalies': action.number_of_anomalies,
+            #     }
+        generation_history_df.to_csv(os.path.join(save_generation_history_dir, 'generation_history_mutation.csv'),
+                                     index=False)
+        print(f'Saved enriched generation history at {os.path.join(save_generation_history_dir, "generation_history_mutation.csv")}')
+        return anomaly_mutator.testing_dfs_dict
+            # print('\n'.join([c.__json__() for c in actions_objects]))
+
+    def convert_to_actions_objects(self, actions_dict_list):
+        actions_objects = []
+        for action_dict in actions_dict_list:
+            action = AnomalyGenerationAction(strategy=GENERATION_STRATEGY[action_dict['strategy'].split('.')[1]],
+                                             impacted_dimension_ids=[int(i) for i in action_dict['impacted_dimension_ids'][1:-1].split(',') if i.strip().isdigit()],
+                                             number_of_anomalies=action_dict['number_of_anomalies']
+                                             )
+            actions_objects.append(action)
+        return actions_objects
 
     def init_various_number_of_data_points_for_testing_batches(self):
         batch_sizes = np.random.random_integers(low=self.num_data_point_per_testing_batch_range[0],
@@ -246,6 +338,7 @@ class GenerationManager:
 
         self.background_normal_data[columns] = self.generate_background_data_without_noise(mode='both')
         self.background_normal_data[flag_columns] = 'Normal'
+        self.background_noise_data = self.background_normal_data.copy()
         # self.background_noise_data= self.background_normal_data.copy()
 
 
@@ -396,6 +489,45 @@ class GenerationManager:
             log.info(f'Saved generated data to {saved_file_path}')
             df.to_csv(saved_zip_file_path, index=False, compression='zip')
             log.info(f'Saved zipped generated data to {saved_zip_file_path}')
+
+    def save_mutated_data(self, mutated_testing_dfs_dict):
+        generation_config = self.generation_cfg
+        settings_cfg = self.setting_cfg
+        data_dir = generation_config.data_dir
+        zip_data_dir = generation_config.zip_data_dir
+        saved_file_dir = os.path.join(data_dir)
+        saved_zip_file_dir = os.path.join(zip_data_dir)
+        # if os.path.exists(saved_file_dir):
+        #     shutil.rmtree(saved_file_dir)
+        # if os.path.exists(saved_zip_file_dir):
+        #     shutil.rmtree(saved_zip_file_dir)
+        os.makedirs(saved_file_dir, exist_ok=True)
+        os.makedirs(saved_zip_file_dir, exist_ok=True)
+        os.makedirs(os.path.join(saved_file_dir, 'mutation'), exist_ok=True)
+        os.makedirs(os.path.join(saved_zip_file_dir, 'mutation'), exist_ok=True)
+        # training_saved_file_path = os.path.join(saved_file_dir, 'synthetic_training.csv')
+        # training_saved_zip_file_path = os.path.join(saved_zip_file_dir, 'synthetic_training.csv.zip')
+        # self.training_df.to_csv(training_saved_file_path, index=False)
+        # self.training_df.to_csv(training_saved_zip_file_path, index=False, compression='zip')
+        # log.info(f'Saved training data to {training_saved_file_path}')
+        # log.info(f'Saved zipped training data to {training_saved_zip_file_path}')
+
+        previous_last_batch_id = len(list(self.testing_dfs_dict.keys()))
+        for index, (key, df) in enumerate(mutated_testing_dfs_dict.items()):
+            batch_number = index + previous_last_batch_id
+            new_key = f'synthetic_{batch_number}'
+            saved_file_path = os.path.join(saved_file_dir, 'mutation', f'{key}_mutation_{index}_map_to_{new_key}.csv')
+            saved_zip_file_path = os.path.join(saved_zip_file_dir, 'mutation', f'{key}_mutation_{index}_map_to_{new_key}.csv.zip')
+            df.to_csv(saved_file_path, index=False)
+
+            new_saved_file_path = os.path.join(saved_file_dir, f'{new_key}.csv')
+            df.to_csv(new_saved_file_path, index=False)
+            log.info(f'Saved generated data to {saved_file_path} and {new_saved_file_path}')
+
+            df.to_csv(saved_zip_file_path, index=False, compression='zip')
+            new_saved_zip_file_path = os.path.join(saved_zip_file_dir, f'{new_key}.csv.zip')
+            df.to_csv(new_saved_zip_file_path, index=False, compression='zip')
+            log.info(f'Saved zipped generated data to {saved_zip_file_path} and {new_saved_zip_file_path}')
 
     def plot_generated_data(self):
         assert self.training_df is not None
