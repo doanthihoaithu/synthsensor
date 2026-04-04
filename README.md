@@ -17,6 +17,9 @@ Demo website: [synthsensor Demo](https://sensordiagnostics.shinyapps.io/app_synt
 
 New modified code is located in folder `Python` and the original code is in folder `R`.
 
+---
+
+
 **synthsensor** generates **labeled, two-sensor synthetic time series**
 for benchmarking sensor diagnostics and uncertainty methods. It supports
 configurable background signals (AR(1), random walk, Poisson moving
