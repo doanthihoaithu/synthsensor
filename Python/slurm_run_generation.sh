@@ -11,5 +11,5 @@
 
 module load python
 source /home/doan/projects/ibm_scripts/torch210/bin/activate
-python main_new.py
+python main.py
 deactivate

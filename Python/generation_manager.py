@@ -35,8 +35,9 @@ class GenerationManager:
     sensors_dict: dict[int, Sensor]
     correlated_constraints: [CorrelationConstraint] = []
     add_background: bool = True
+    project_root_dir: str = './'
 
-    def __init__(self, settings_cfg: DictConfig, generation_cfg:DictConfig, add_background: bool = True):
+    def __init__(self, settings_cfg: DictConfig, generation_cfg:DictConfig, add_background: bool = True, project_root_dir: str = './'):
         self.setting_cfg = settings_cfg
         self.generation_cfg = generation_cfg
         # self.background_types = validate_settings_cfg(settings_cfg)x
@@ -44,6 +45,12 @@ class GenerationManager:
         # self.num_sensors = settings_cfg.num_sensors
         self.import_sensors_from_settings_config(settings_cfg)
         self.add_background = add_background
+        self.project_root_dir = project_root_dir
+        self.generation_cfg.update({'data_dir': os.path.join(self.project_root_dir,generation_cfg.data_dir)})
+        self.generation_cfg.update({'zip_data_dir': os.path.join(self.project_root_dir,generation_cfg.zip_data_dir)})
+        self.generation_cfg.update({'save_generation_history_dir': os.path.join(self.project_root_dir,generation_cfg.save_generation_history_dir)})
+
+
 
 
         self.num_training_data_points: int = settings_cfg.num_training_data_points

@@ -15,5 +15,6 @@ Python/generation/history
 Python/.hydra/
 Python/**.log
 **/__pycache__/
+**/hydra_outputs
 
 
